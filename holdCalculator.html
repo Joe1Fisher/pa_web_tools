@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>期货工具：持仓均价 & 预期盈亏</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, sans-serif;
+        }
+        body {
+            background:#f4f2f8;
+            padding:16px;
+            max-width:620px;
+            margin:0 auto;
+        }
+        .container {
+            background:#fff;
+            border-radius:16px;
+            padding:20px;
+            box-shadow:0 2px 12px #00000014;
+        }
+        /* tab切换 */
+        .tab-wrap{
+            display:flex;
+            gap:8px;
+            margin-bottom:20px;
+        }
+        .tab{
+            flex:1;
+            padding:12px;
+            text-align:center;
+            border-radius:10px;
+            border:1px solid #dcc8e8;
+            cursor:pointer;
+        }
+        .tab.active{
+            background:#9c27b0;
+            color:#fff;
+            border-color:#9c27b0;
+        }
+        .panel{
+            display:none;
+        }
+        .panel.show{
+            display:block;
+        }
+
+        .row-wrap {
+            display: grid;
+            grid-template-columns: 1fr 1fr 80px;
+            gap:10px;
+            margin-bottom:12px;
+            align-items: end;
+        }
+        .item label {
+            display:block;
+            font-size:14px;
+            margin-bottom:4px;
+            color:#333;
+        }
+        input {
+            width:100%;
+            border:1px solid #ddd;
+            border-radius:8px;
+            padding:10px 12px;
+            font-size:16px;
+        }
+        .del-btn {
+            color:#9c27b0;
+            background:none;
+            border:none;
+            font-size:15px;
+            cursor:pointer;
+        }
+        .add-line {
+            color:#9c27b0;
+            border:none;
+            background:none;
+            font-size:15px;
+            padding:8px 0;
+            cursor:pointer;
+        }
+        .calc-full-btn {
+            width:100%;
+            background:#9c27b0;
+            color:white;
+            border:none;
+            border-radius:12px;
+            padding:14px;
+            font-size:17px;
+            margin:16px 0;
+        }
+        .result-block {
+            background:#f7f2fc;
+            border-radius:12px;
+            padding:20px;
+            margin-bottom:20px;
+        }
+        .result-val {
+            font-size:34px;
+            color:#9c27b0;
+            font-weight:bold;
+        }
+        /* 盈亏面板布局 */
+        .flex-row{
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:12px;
+            margin-bottom:12px;
+        }
+        .direction-btn{
+            width:100%;
+            padding:12px;
+            font-size:17px;
+            border-radius:10px;
+            border:none;
+            background:#5288ed;
+            color:white;
+            cursor:pointer;
+        }
+        .profit-result{
+            margin-top:16px;
+            padding:16px;
+            background:#f7f2fc;
+            border-radius:12px;
+        }
+        .profit-num{
+            font-size:32px;
+            font-weight:bold;
+        }
+        .red{color:#d63031;}
+        .green{color:#00b894;}
+
+        /* 历史记录区域 */
+        .history-wrap{
+            border:1px solid #e2d5ec;
+            border-radius:12px;
+            padding:16px;
+            background:#faf7fd;
+            margin-top:24px;
+        }
+        .history-item{
+            padding:10px 12px;
+            background:#ffffff;
+            border-radius:8px;
+            margin:8px 0;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            cursor:pointer;
+            border:1px solid #e9e2f0;
+        }
+        .history-item:hover{
+            background:#f3ecfa;
+        }
+        .history-del{
+            color:#c74498;
+            border:none;
+            background:transparent;
+            cursor:pointer;
+        }
+        .history-title{
+            font-weight:500;
+            margin-bottom:10px;
+        }
+        .clear-all{
+            font-size:13px;
+            color:#9c27b0;
+            cursor:pointer;
+            text-align:right;
+            margin-bottom:8px;
+        }
+        .tag-avg{
+            font-size:11px;
+            background:#dcc8e8;
+            color:#555;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
+        .tag-profit{
+            font-size:11px;
+            background:#b8e1d3;
+            color:#226644;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Tab切换 -->
+    <div class="tab-wrap">
+        <div class="tab active" onclick="switchTab(0)">持仓均价计算</div>
+        <div class="tab" onclick="switchTab(1)">预期盈亏测算</div>
+    </div>
+
+    <!-- 面板0：持仓均价 -->
+    <div id="panel0" class="panel show">
+        <div id="listWrap"></div>
+        <button class="add-line" onclick="addRow()">+ 添加一份持仓</button>
+        <button class="calc-full-btn" onclick="calcAvg()">开始计算</button>
+
+        <div class="result-block">
+            <div>平均持仓成本</div>
+            <div class="result-val" id="resultOut">—</div>
+        </div>
+    </div>
+
+    <!-- 面板1：预期盈亏测算 -->
+    <div id="panel1" class="panel">
+        <div class="item">
+            <label>交易方向</label>
+            <button class="direction-btn" id="dirBtn" onclick="toggleDirection()">买（多单）</button>
+        </div>
+        <div class="flex-row">
+            <div class="item">
+                <label>订单开仓价</label>
+                <input id="entryPrice" type="number" placeholder="例如 4580">
+            </div>
+            <div class="item">
+                <label>开仓数量(手)</label>
+                <input id="lotCount" type="number" placeholder="手数">
+            </div>
+        </div>
+        <div class="flex-row">
+            <div class="item">
+                <label>当前市价</label>
+                <input id="marketPrice" type="number" placeholder="现价">
+            </div>
+            <div class="item">
+                <label>合约乘数(默认5)</label>
+                <input id="multiplier" type="number" value="5">
+            </div>
+        </div>
+        <button class="calc-full-btn" onclick="calcProfitAndSave()">开始计算</button>
+        <div class="profit-result">
+            <div>预期盈亏</div>
+            <div class="profit-num" id="profitOut">—</div>
+        </div>
+    </div>
+
+    <!--历史记录区域-->
+    <div class="history-wrap">
+        <div class="history-title">📋 计算历史（点击回填）</div>
+        <div class="clear-all" onclick="clearAllHistory()">清空全部历史</div>
+        <div id="historyBox"></div>
+    </div>
+</div>
+
+<script>
+// ========== Tab切换 ==========
+let currentTab = 0;
+function switchTab(idx){
+    currentTab = idx;
+    document.querySelectorAll(".tab").forEach((t,i)=>{
+        if(i===idx) t.classList.add("active");
+        else t.classList.remove("active");
+    })
+    document.querySelectorAll(".panel").forEach((p,i)=>{
+        if(i===idx) p.classList.add("show");
+        else p.classList.remove("show");
+    })
+}
+
+// ========== 盈亏测算模块 ==========
+let isLong = true; // true=做多买，false=做空卖
+function toggleDirection(){
+    isLong = !isLong;
+    const btn = document.getElementById("dirBtn");
+    if(isLong){
+        btn.innerText = "买（多单）";
+        btn.style.background="#5288ed";
+    }else{
+        btn.innerText = "卖（空单）";
+        btn.style.background="#e17055";
+    }
+}
+
+// 点击按钮执行计算+保存
+function calcProfitAndSave(){
+    const entry = Number(document.getElementById("entryPrice").value);
+    const lot = Number(document.getElementById("lotCount").value);
+    const market = Number(document.getElementById("marketPrice").value);
+    const mul = Number(document.getElementById("multiplier").value);
+    const outDom = document.getElementById("profitOut");
+    if(!entry || !lot || !market || !mul){
+        outDom.innerText = "输入有效数据";
+        outDom.className = "profit-num";
+        return;
+    }
+    let diff = isLong ? (market - entry) : (entry - market);
+    let profit = diff * lot * mul;
+    outDom.innerText = profit.toFixed(2);
+    if(profit>0){
+        outDom.className="profit-num green";
+    }else if(profit<0){
+        outDom.className="profit-num red";
+    }else{
+        outDom.className="profit-num";
+    }
+    //保存盈亏记录到历史
+    saveProfitToHistory({
+        type:"profit",
+        isLong: isLong,
+        entryPrice:entry,
+        lotCount:lot,
+        marketPrice:market,
+        multiplier:mul,
+        result:profit
+    });
+}
+
+// 通用对比：判断两条记录是否完全相同
+function isRecordEqual(a,b){
+    const strA = JSON.stringify(a);
+    const strB = JSON.stringify(b);
+    return strA === strB;
+}
+
+//保存盈亏记录（增加查重）
+function saveProfitToHistory(obj){
+    let history = JSON.parse(localStorage.getItem("costHistory")||"[]");
+    //查重
+    const exist = history.some(item => isRecordEqual(item, obj));
+    if(exist) return;
+
+    history.push(obj);
+    if(history.length>20) history.shift();
+    localStorage.setItem("costHistory",JSON.stringify(history));
+    renderHistory();
+}
+
+//回填盈亏数据到盈亏面板
+function fillProfitData(item){
+    isLong = item.isLong;
+    const btn = document.getElementById("dirBtn");
+    if(isLong){
+        btn.innerText = "买（多单）";
+        btn.style.background="#5288ed";
+    }else{
+        btn.innerText = "卖（空单）";
+        btn.style.background="#e17055";
+    }
+    document.getElementById("entryPrice").value = item.entryPrice;
+    document.getElementById("lotCount").value = item.lotCount;
+    document.getElementById("marketPrice").value = item.marketPrice;
+    document.getElementById("multiplier").value = item.multiplier;
+    document.getElementById("profitOut").innerText = "—";
+    switchTab(1);
+}
+
+// ========== 持仓均价模块 ==========
+function addRow(qty="", price=""){
+    const wrap = document.getElementById("listWrap");
+    const div = document.createElement("div");
+    div.className = "row-wrap";
+    div.innerHTML = `
+        <div class="item">
+            <label>持仓数量 *</label>
+            <input class="inp-qty" type="number" value="${qty}">
+        </div>
+        <div class="item">
+            <label>单股成本价 *</label>
+            <input class="inp-price" type="number" value="${price}">
+        </div>
+        <div>
+            <button class="del-btn" onclick="this.closest('.row-wrap').remove()">删除</button>
+        </div>
+    `;
+    wrap.appendChild(div);
+}
+
+function getCurrentInputData(){
+    const rows = document.querySelectorAll(".row-wrap");
+    const arr = [];
+    for(let r of rows){
+        const qty = Number(r.querySelector(".inp-qty").value);
+        const price = Number(r.querySelector(".inp-price").value);
+        if(qty>0 && price>0){
+            arr.push({qty,price});
+        }
+    }
+    return arr;
+}
+
+function fillDataToInput(dataArr){
+    document.getElementById("listWrap").innerHTML = "";
+    dataArr.forEach(item=>{
+        addRow(item.qty, item.price);
+    })
+    switchTab(0);
+}
+
+//渲染历史，区分两种类型
+function renderHistory(){
+    const box = document.getElementById("historyBox");
+    let history = JSON.parse(localStorage.getItem("costHistory") || "[]");
+    box.innerHTML = "";
+    if(history.length===0){
+        box.innerHTML = "<div style='color:#888'>暂无记录</div>";
+        return;
+    }
+    history.forEach((item,idx)=>{
+        const div = document.createElement("div");
+        div.className="history-item";
+        let showText = "";
+        if(item.type === "profit"){
+            //盈亏记录
+            const dirText = item.isLong?"多":"空";
+            showText = `<span class="tag-profit">盈亏</span>${dirText},${item.entryPrice},${item.lotCount}手,现价${item.marketPrice},盈亏${item.result.toFixed(2)}`;
+        }else{
+            //均价记录
+            showText = `<span class="tag-avg">均价</span>${item.map(x=>`${x.qty}@${x.price}`).join("，")}`;
+        }
+        div.innerHTML = `
+            <span>${showText}</span>
+            <button class="history-del">×</button>
+        `
+        div.onclick = (e)=>{
+            if(e.target.tagName==='BUTTON') return;
+            if(item.type==="profit"){
+                fillProfitData(item);
+            }else{
+                fillDataToInput(item);
+            }
+        }
+        div.querySelector(".history-del").onclick=(e)=>{
+            e.stopPropagation();
+            history.splice(idx,1);
+            localStorage.setItem("costHistory",JSON.stringify(history));
+            renderHistory();
+        }
+        box.appendChild(div);
+    })
+}
+
+//保存均价记录（增加查重）
+function saveCurrentToHistory(dataArr){
+    if(dataArr.length===0) return;
+    let history = JSON.parse(localStorage.getItem("costHistory")||"[]");
+    const exist = history.some(item => isRecordEqual(item, dataArr));
+    if(exist) return;
+
+    history.push(dataArr);
+    if(history.length>20) history.shift();
+    localStorage.setItem("costHistory",JSON.stringify(history));
+    renderHistory();
+}
+
+function clearAllHistory(){
+    localStorage.removeItem("costHistory");
+    renderHistory();
+}
+
+function calcAvg(){
+    const rows = document.querySelectorAll(".row-wrap");
+    let totalMoney = 0;
+    let totalCount = 0;
+    for(let r of rows){
+        const qty = Number(r.querySelector(".inp-qty").value);
+        const price = Number(r.querySelector(".inp-price").value);
+        if(!qty || !price) continue;
+        totalMoney += qty * price;
+        totalCount += qty;
+    }
+    if(totalCount <=0){
+        document.getElementById("resultOut").innerText = "输入有效持仓";
+        return;
+    }
+    const avg = totalMoney / totalCount;
+    document.getElementById("resultOut").innerText = avg.toFixed(3);
+    saveCurrentToHistory(getCurrentInputData());
+}
+
+window.onload = ()=>{
+    // 默认两行空白持仓输入框
+    addRow();
+    addRow();
+    renderHistory();
+}
+</script>
+</body>
+</html>

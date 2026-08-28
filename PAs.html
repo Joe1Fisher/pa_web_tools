@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>价格行为工具箱</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, sans-serif;
+        }
+        body {
+            background:#f4f2f8;
+            padding:16px;
+            max-width:620px;
+            margin:0 auto;
+        }
+        .container {
+            background:#fff;
+            border-radius:16px;
+            padding:20px;
+            box-shadow:0 2px 12px #00000014;
+        }
+        .flex-row{
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:12px;
+            margin-bottom:12px;
+        }
+        .item label {
+            display:block;
+            font-size:14px;
+            margin-bottom:4px;
+            color:#333;
+        }
+        input {
+            width:100%;
+            border:1px solid #ddd;
+            border-radius:8px;
+            padding:10px 12px;
+            font-size:16px;
+        }
+        .calc-full-btn {
+            width:100%;
+            background:#9c27b0;
+            color:white;
+            border:none;
+            border-radius:12px;
+            padding:14px;
+            font-size:17px;
+            margin:16px 0;
+        }
+        .result-block {
+            background:#f7f2fc;
+            border-radius:12px;
+            padding:20px;
+            margin-bottom:20px;
+        }
+        .result-val {
+            font-size:24px;
+            color:#9c27b0;
+            font-weight:bold;
+        }
+        .result-item{
+            margin:8px 0;
+        }
+        .result-desc{
+            margin-top:4px;
+            font-size:13px;
+            color:#666;
+        }
+        .tag-backward{
+            font-size:12px;
+            background:#ffe8ef;
+            color:#b04060;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
+        .tag-forward{
+            font-size:12px;
+            background:#e1f5ee;
+            color:#208060;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
+        .tag-pb{
+            font-size:12px;
+            background:#e8f0fe;
+            color:#2060b0;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
+        .tag-2leg{
+            font-size:12px;
+            background:#f0e8ff;
+            color:#7030b0;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
+        /* 历史记录区域 */
+        .history-wrap{
+            border:1px solid #e2d5ec;
+            border-radius:12px;
+            padding:16px;
+            background:#faf7fd;
+            margin-top:24px;
+        }
+        .history-item{
+            padding:10px 12px;
+            background:#ffffff;
+            border-radius:8px;
+            margin:8px 0;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            cursor:pointer;
+            border:1px solid #e9e2f0;
+        }
+        .history-item:hover{
+            background:#f3ecfa;
+        }
+        .history-del{
+            color:#c74498;
+            border:none;
+            background:transparent;
+            cursor:pointer;
+        }
+        .history-title{
+            font-weight:500;
+            margin-bottom:10px;
+        }
+        .clear-all{
+            font-size:13px;
+            color:#9c27b0;
+            cursor:pointer;
+            text-align:right;
+            margin-bottom:8px;
+        }
+        .tag-mm{
+            font-size:11px;
+            background:#dcc8e8;
+            color:#555;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
+        .switch-buttons{
+            display:flex;
+            gap:10px;
+            margin-bottom:20px;
+        }
+        .switch-btn{
+            flex:1;
+            padding:10px;
+            border:none;
+            border-radius:8px;
+            background:#eee;
+            cursor:pointer;
+            font-size:15px;
+        }
+        .switch-btn.active{
+            background:#9c27b0;
+            color:white;
+        }
+        /* 隐藏行通用样式 */
+        .hide-row{
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h3 style="margin-top:0;color:#444;">📐 价格行为工具箱</h3>
+    <div class="switch-buttons">
+        <button class="switch-btn active" id="btnMM" onclick="switchMode('mm')">测量移动 MM</button>
+        <button class="switch-btn" id="btnPB" onclick="switchMode('pb')">50%PB 回撤</button>
+        <button class="switch-btn" id="btn2leg" onclick="switchMode('2leg')">2leg 测算</button>
+    </div>
+    <p id="desc-text" style="font-size:14px;color:#666;margin:4px 0 20px 0;">
+        正向N：沿波段方向计算N个目标；反向M：跳过起点A向外计算M个目标<br>
+        例：A=65,B=70，正向N=1，反向M=2 →反向：60、55；正向：75
+    </p>
+
+    <!-- MM/PB共用的扩展参数行 -->
+    <div class="flex-row" id="extend-row">
+        <div class="item">
+            <label id="labelForward">正向计算数量N</label>
+            <input id="forwardN" type="number" value="1" min="0">
+        </div>
+        <div class="item">
+            <label id="labelBackward">反向计算数量M</label>
+            <input id="backwardM" type="number" value="0" min="0">
+        </div>
+    </div>
+
+    <!-- 通用价格输入行1（MM:A/P1；PB:高点；2leg:leg1起点） -->
+    <div class="flex-row">
+        <div class="item">
+            <label id="labelP1">起点价格 A</label>
+            <input id="priceA" type="number" placeholder="65">
+        </div>
+        <div class="item">
+            <label id="labelP2">折返点价格 B</label>
+            <input id="priceB" type="number" placeholder="70">
+        </div>
+    </div>
+
+    <!-- 2leg专属输入行：leg2起点 -->
+    <div class="flex-row" id="leg2-start-row">
+        <div class="item">
+            <label id="labelLeg2Start">leg2起点价格</label>
+            <input id="priceLeg2Start" type="number" placeholder="78">
+        </div>
+        <div class="item"></div>
+    </div>
+
+    <button class="calc-full-btn" onclick="calc()">计算目标位</button>
+
+    <div class="result-block">
+        <div id="result-title">测量移动目标列表</div>
+        <div id="resultContainer"></div>
+    </div>
+
+    <!--历史记录区域-->
+    <div class="history-wrap">
+        <div class="history-title">📋 计算历史（点击回填）</div>
+        <div class="clear-all" onclick="clearAllHistory()">清空全部历史</div>
+        <div id="historyBox"></div>
+    </div>
+</div>
+<script>
+let currentMode = "mm"; // mm / pb / 2leg
+
+// 切换模式
+function switchMode(mode){
+    currentMode = mode;
+    document.getElementById("btnMM").classList.toggle("active", mode==="mm");
+    document.getElementById("btnPB").classList.toggle("active", mode==="pb");
+    document.getElementById("btn2leg").classList.toggle("active", mode==="2leg");
+    const desc = document.getElementById("desc-text");
+    const resTitle = document.getElementById("result-title");
+    const labelF = document.getElementById("labelForward");
+    const labelB = document.getElementById("labelBackward");
+    const labelP1 = document.getElementById("labelP1");
+    const labelP2 = document.getElementById("labelP2");
+    const extendRow = document.getElementById("extend-row");
+    const leg2Row = document.getElementById("leg2-start-row");
+
+    if(mode === "mm"){
+        desc.innerHTML = `正向N：沿波段方向计算N个目标；反向M：跳过起点A向外计算M个目标<br>例：A=65,B=70，正向N=1，反向M=2 →反向：60、55；正向：75`;
+        resTitle.innerText = "测量移动目标列表";
+        labelF.innerText = "正向计算数量N";
+        labelB.innerText = "反向计算数量M";
+        labelP1.innerText = "起点价格 A";
+        labelP2.innerText = "折返点价格 B";
+        extendRow.classList.remove("hide-row");
+        leg2Row.classList.add("hide-row");
+    }else if(mode === "pb"){
+        desc.innerHTML = `50%PB回撤计算：输入高低两点，自动算出50%中间位`;
+        resTitle.innerText = "50%PB回撤结果";
+        labelP1.innerText = "高点价格";
+        labelP2.innerText = "低点价格";
+        extendRow.classList.add("hide-row");
+        leg2Row.classList.add("hide-row");
+    }else{
+        desc.innerHTML = `2leg等量测算：输入leg1起点、leg1终点、leg2起点，自动算出leg2终点<br>例：leg1(75→80)，leg2起点78 → 终点=78+(80-75)=83`;
+        resTitle.innerText = "2leg测算结果";
+        labelP1.innerText = "leg1起点";
+        labelP2.innerText = "leg1终点";
+        extendRow.classList.add("hide-row");
+        leg2Row.classList.remove("hide-row");
+    }
+    document.getElementById("resultContainer").innerHTML = "";
+}
+
+// 统一计算入口
+function calc(){
+    if(currentMode === "mm"){
+        calcMeasureMove();
+    }else if(currentMode === "pb"){
+        calcPB50();
+    }else{
+        calc2Leg();
+    }
+}
+
+// ========== 测量移动MM计算 ==========
+function calcMeasureMove(){
+    const A = Number(document.getElementById("priceA").value);
+    const B = Number(document.getElementById("priceB").value);
+    const forwardN = Number(document.getElementById("forwardN").value)||0;
+    const backwardM = Number(document.getElementById("backwardM").value)||0;
+    const resultContainer = document.getElementById("resultContainer");
+
+    if(!A || !B){
+        resultContainer.innerHTML = `<div class="result-item"><div class="result-val">请输入有效价格</div></div>`;
+        return;
+    }
+    const range = Math.abs(B - A);
+    const isUp = B > A;
+
+    const forwardTargets = [];
+    for(let i=1;i<=forwardN;i++){
+        let t;
+        if(isUp){
+            t = B + i * range;
+        }else{
+            t = B - i * range;
+        }
+        forwardTargets.push({n:i, val:t});
+    }
+
+    const backwardTargets = [];
+    for(let i=2;i<=backwardM+1;i++){
+        let t;
+        if(isUp){
+            t = B - i * range;
+        }else{
+            t = B + i * range;
+        }
+        backwardTargets.push({n: backwardTargets.length+1, val:t});
+    }
+
+    let html = "";
+    const dirText = isUp ? "上涨波段" : "下跌波段";
+    html += `<div class="result-desc">${dirText}｜基础幅度=${range.toFixed(3)}</div>`;
+
+    if(backwardTargets.length>0){
+        html += `<div style="margin-top:10px;"><span class="tag-backward">反向目标</span></div>`;
+        backwardTargets.forEach(item=>{
+            const op = isUp ? "−" : "+";
+            const coeff = item.n+1;
+            html += `
+            <div class="result-item">
+                <div class="result-val">反向${item.n}: ${item.val.toFixed(3)}</div>
+                <div class="result-desc">= ${B} ${op} ${coeff} × ${range.toFixed(3)}</div>
+            </div>
+            `;
+        })
+    }
+    if(forwardTargets.length>0){
+        html += `<div style="margin-top:10px;"><span class="tag-forward">正向目标</span></div>`;
+        forwardTargets.forEach(item=>{
+            const op = isUp ? "+" : "−";
+            html += `
+            <div class="result-item">
+                <div class="result-val">正向${item.n}: ${item.val.toFixed(3)}</div>
+                <div class="result-desc">= ${B} ${op} ${item.n} × ${range.toFixed(3)}</div>
+            </div>
+            `;
+        })
+    }
+    if(forwardTargets.length===0 && backwardTargets.length===0){
+        html += `<div class="result-item"><div class="result-desc">N与M均为0，无输出目标</div></div>`;
+    }
+
+    resultContainer.innerHTML = html;
+
+    saveToLocal({
+        type:"measureMove",
+        priceA:A,
+        priceB:B,
+        forwardN:forwardN,
+        backwardM:backwardM,
+        range:range,
+        isUp:isUp,
+        forwardTargets:forwardTargets,
+        backwardTargets:backwardTargets
+    });
+}
+
+// ========== 50%PB回撤计算 ==========
+function calcPB50(){
+    const high = Number(document.getElementById("priceA").value);
+    const low = Number(document.getElementById("priceB").value);
+    const resultContainer = document.getElementById("resultContainer");
+
+    if(!high || !low || high === low){
+        resultContainer.innerHTML = `<div class="result-item"><div class="result-val">请输入有效高低点价格，不能相等</div></div>`;
+        return;
+    }
+    const diff = Math.abs(high - low);
+    const mid50 = (high + low) / 2;
+
+    let html = "";
+    html += `<div class="result-desc">高低振幅=${diff.toFixed(3)}</div>`;
+    html += `<div style="margin-top:10px;"><span class="tag-pb">核心50%PB</span></div>`;
+    html += `
+        <div class="result-item">
+            <div class="result-val">50%中间位: ${mid50.toFixed(3)}</div>
+            <div class="result-desc">= (${high} + ${low}) ÷ 2</div>
+        </div>
+    `;
+
+    resultContainer.innerHTML = html;
+
+    saveToLocal({
+        type:"pb50",
+        high:high,
+        low:low,
+        diff:diff,
+        mid50:mid50
+    });
+}
+
+// ========== 新增2leg等量测算 ==========
+function calc2Leg(){
+    const leg1Start = Number(document.getElementById("priceA").value);
+    const leg1End = Number(document.getElementById("priceB").value);
+    const leg2Start = Number(document.getElementById("priceLeg2Start").value);
+    const resultContainer = document.getElementById("resultContainer");
+
+    if(!leg1Start || !leg1End || !leg2Start){
+        resultContainer.innerHTML = `<div class="result-item"><div class="result-val">请填写全部三个价格</div></div>`;
+        return;
+    }
+    const leg1Range = leg1End - leg1Start;
+    const leg2End = leg2Start + leg1Range;
+
+    let html = "";
+    html += `<div class="result-desc">leg1波动幅度=${leg1Range.toFixed(3)}</div>`;
+    html += `<div style="margin-top:10px;"><span class="tag-2leg">leg2终点</span></div>`;
+    html += `
+        <div class="result-item">
+            <div class="result-val">leg2终点: ${leg2End.toFixed(3)}</div>
+            <div class="result-desc">= ${leg2Start} + (${leg1End} - ${leg1Start})</div>
+        </div>
+    `;
+
+    resultContainer.innerHTML = html;
+
+    saveToLocal({
+        type:"2leg",
+        leg1Start:leg1Start,
+        leg1End:leg1End,
+        leg2Start:leg2Start,
+        leg1Range:leg1Range,
+        leg2End:leg2End
+    });
+}
+
+// ========== 历史记录通用逻辑 ==========
+function isRecordEqual(a,b){
+    return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function saveToLocal(obj){
+    let history = [];
+    const raw = localStorage.getItem("toolHistory");
+    if(raw){
+        try{
+            history = JSON.parse(raw);
+        }catch(e){
+            history = [];
+        }
+    }
+    const exist = history.some(x=>isRecordEqual(x,obj));
+    if(exist) return;
+    history.push(obj);
+    if(history.length>20) history.shift();
+    localStorage.setItem("toolHistory",JSON.stringify(history));
+    renderHistory();
+}
+
+function fillRecord(item){
+    if(item.type === "measureMove"){
+        switchMode("mm");
+        document.getElementById("priceA").value = item.priceA;
+        document.getElementById("priceB").value = item.priceB;
+        document.getElementById("forwardN").value = item.forwardN;
+        document.getElementById("backwardM").value = item.backwardM;
+    }else if(item.type === "pb50"){
+        switchMode("pb");
+        document.getElementById("priceA").value = item.high;
+        document.getElementById("priceB").value = item.low;
+    }else if(item.type === "2leg"){
+        switchMode("2leg");
+        document.getElementById("priceA").value = item.leg1Start;
+        document.getElementById("priceB").value = item.leg1End;
+        document.getElementById("priceLeg2Start").value = item.leg2Start;
+    }
+    document.getElementById("resultContainer").innerHTML = "";
+}
+
+function renderHistory(){
+    const box = document.getElementById("historyBox");
+    let history = [];
+    const raw = localStorage.getItem("toolHistory");
+    if(raw){
+        try{
+            history = JSON.parse(raw);
+        }catch(e){
+            history = [];
+            localStorage.removeItem("toolHistory");
+        }
+    }
+    box.innerHTML = "";
+    if(history.length===0){
+        box.innerHTML = "<div style='color:#888'>暂无记录</div>";
+        return;
+    }
+    history.forEach((item,idx)=>{
+        const div = document.createElement("div");
+        div.className="history-item";
+        let tagText;
+        if(item.type === "measureMove"){
+            tagText = `<span class="tag-mm">MM(N${item.forwardN},M${item.backwardM})</span>A:${item.priceA},B:${item.priceB}`;
+        }else if(item.type === "pb50"){
+            tagText = `<span class="tag-mm">PB50</span>高点:${item.high},低点:${item.low}`;
+        }else{
+            tagText = `<span class="tag-mm">2leg</span>leg1(${item.leg1Start}→${item.leg1End}),leg2起点:${item.leg2Start}`;
+        }
+        div.innerHTML = `
+            <span>${tagText}</span>
+            <button class="history-del">×</button>
+        `
+        div.onclick = (e)=>{
+            if(e.target.tagName==='BUTTON') return;
+            fillRecord(item);
+        }
+        div.querySelector(".history-del").onclick=(e)=>{
+            e.stopPropagation();
+            history.splice(idx,1);
+            localStorage.setItem("toolHistory",JSON.stringify(history));
+            renderHistory();
+        }
+        box.appendChild(div);
+    })
+}
+
+function clearAllHistory(){
+    localStorage.removeItem("toolHistory");
+    renderHistory();
+}
+
+window.onload = ()=>{
+    renderHistory();
+}
+</script>
+</body>
+</html>
