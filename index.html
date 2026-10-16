@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>价格行为工具箱</title>
+    <title>期货综合工具箱</title>
     <style>
         * {
             box-sizing: border-box;
@@ -21,11 +21,62 @@
             padding:20px;
             box-shadow:0 2px 12px #00000014;
         }
-        .flex-row{
-            display:grid;
-            grid-template-columns:1fr 1fr;
-            gap:12px;
+        /* 一级大Tab【冷色调蓝色】 */
+        .main-tab-wrap{
+            display:flex;
+            gap:8px;
+            margin-bottom:20px;
+        }
+        .main-tab{
+            flex:1;
+            padding:12px;
+            text-align:center;
+            border-radius:10px;
+            border:1px solid #c2d8f0;
+            cursor:pointer;
+        }
+        .main-tab.active{
+            background:#3474bb;
+            color:#fff;
+            border-color:#3474bb;
+        }
+        .main-panel{
+            display:none;
+        }
+        .main-panel.show{
+            display:block;
+        }
+        /* 子tab（持仓工具内部）改回紫色，与calc按钮统一 */
+        .tab-wrap{
+            display:flex;
+            gap:8px;
+            margin-bottom:20px;
+        }
+        .tab{
+            flex:1;
+            padding:12px;
+            text-align:center;
+            border-radius:10px;
+            border:1px solid #dcc8e8;
+            cursor:pointer;
+        }
+        .tab.active{
+            background:#9c27b0;
+            color:#fff;
+            border-color:#9c27b0;
+        }
+        .panel{
+            display:none;
+        }
+        .panel.show{
+            display:block;
+        }
+        .row-wrap {
+            display: grid;
+            grid-template-columns: 1fr 1fr 80px;
+            gap:10px;
             margin-bottom:12px;
+            align-items: end;
         }
         .item label {
             display:block;
@@ -39,6 +90,21 @@
             border-radius:8px;
             padding:10px 12px;
             font-size:16px;
+        }
+        .del-btn {
+            color:#3474bb;
+            background:none;
+            border:none;
+            font-size:15px;
+            cursor:pointer;
+        }
+        .add-line {
+            color:#3474bb;
+            border:none;
+            background:none;
+            font-size:15px;
+            padding:8px 0;
+            cursor:pointer;
         }
         .calc-full-btn {
             width:100%;
@@ -57,9 +123,15 @@
             margin-bottom:20px;
         }
         .result-val {
-            font-size:24px;
+            font-size:30px;
             color:#9c27b0;
             font-weight:bold;
+        }
+        .result-val-sm {
+            font-size:22px;
+            color:#9c27b0;
+            font-weight:bold;
+            margin-top:8px;
         }
         .result-item{
             margin:8px 0;
@@ -69,38 +141,43 @@
             font-size:13px;
             color:#666;
         }
-        .tag-backward{
-            font-size:12px;
-            background:#ffe8ef;
-            color:#b04060;
-            border-radius:4px;
-            padding:2px 5px;
-            margin-right:6px;
+        /* 盈亏面板布局 */
+        .flex-row{
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:12px;
+            margin-bottom:12px;
         }
-        .tag-forward{
-            font-size:12px;
-            background:#e1f5ee;
-            color:#208060;
-            border-radius:4px;
-            padding:2px 5px;
-            margin-right:6px;
+        .direction-btn{
+            width:100%;
+            padding:12px;
+            font-size:17px;
+            border-radius:10px;
+            border:none;
+            background:#5288ed;
+            color:white;
+            cursor:pointer;
         }
-        .tag-pb{
-            font-size:12px;
-            background:#e8f0fe;
-            color:#2060b0;
-            border-radius:4px;
-            padding:2px 5px;
-            margin-right:6px;
+        .profit-result{
+            margin-top:16px;
+            padding:16px;
+            background:#f7f2fc;
+            border-radius:12px;
         }
-        .tag-2leg{
-            font-size:12px;
-            background:#f0e8ff;
-            color:#7030b0;
-            border-radius:4px;
-            padding:2px 5px;
-            margin-right:6px;
+        .profit-line{
+            margin:10px 0;
         }
+        .profit-label{
+            font-size:14px;
+            color:#444;
+        }
+        .profit-num{
+            font-size:24px;
+            font-weight:bold;
+            margin-top:4px;
+        }
+        .red{color:#d63031;}
+        .green{color:#00b894;}
         /* 历史记录区域 */
         .history-wrap{
             border:1px solid #e2d5ec;
@@ -140,6 +217,54 @@
             text-align:right;
             margin-bottom:8px;
         }
+        .tag-avg{
+            font-size:11px;
+            background:#dcc8e8;
+            color:#555;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
+        .tag-profit{
+            font-size:11px;
+            background:#b8e1d3;
+            color:#226644;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
+        .tag-backward{
+            font-size:12px;
+            background:#ffe8ef;
+            color:#b04060;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
+        .tag-forward{
+            font-size:12px;
+            background:#e1f5ee;
+            color:#208060;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
+        .tag-pb{
+            font-size:12px;
+            background:#e8f0fe;
+            color:#2060b0;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
+        .tag-2leg{
+            font-size:12px;
+            background:#f0e8ff;
+            color:#7030b0;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
         .tag-mm{
             font-size:11px;
             background:#dcc8e8;
@@ -166,7 +291,6 @@
             background:#9c27b0;
             color:white;
         }
-        /* 隐藏行通用样式 */
         .hide-row{
             display: none;
         }
@@ -174,68 +298,381 @@
 </head>
 <body>
 <div class="container">
-    <h3 style="margin-top:0;color:#444;">📐 价格行为工具箱</h3>
-    <div class="switch-buttons">
-        <button class="switch-btn active" id="btnMM" onclick="switchMode('mm')">测量移动 MM</button>
-        <button class="switch-btn" id="btnPB" onclick="switchMode('pb')">50%PB 回撤</button>
-        <button class="switch-btn" id="btn2leg" onclick="switchMode('2leg')">2leg 测算</button>
-    </div>
-    <p id="desc-text" style="font-size:14px;color:#666;margin:4px 0 20px 0;">
-        正向N：沿波段方向计算N个目标；反向M：跳过起点A向外计算M个目标<br>
-        例：A=65,B=70，正向N=1，反向M=2 →反向：60、55；正向：75
-    </p>
-
-    <!-- MM/PB共用的扩展参数行 -->
-    <div class="flex-row" id="extend-row">
-        <div class="item">
-            <label id="labelForward">正向计算数量N</label>
-            <input id="forwardN" type="number" value="1" min="0">
-        </div>
-        <div class="item">
-            <label id="labelBackward">反向计算数量M</label>
-            <input id="backwardM" type="number" value="0" min="0">
-        </div>
+    <h3 style="margin-top:0;color:#444;">📈 期货综合工具箱</h3>
+    <!-- 一级大Tab -->
+    <div class="main-tab-wrap">
+        <div class="main-tab active" onclick="switchMainTab(0)">持仓工具</div>
+        <div class="main-tab" onclick="switchMainTab(1)">价格行为工具箱</div>
     </div>
 
-    <!-- 通用价格输入行1（MM:A/P1；PB:高点；2leg:leg1起点） -->
-    <div class="flex-row">
-        <div class="item">
-            <label id="labelP1">起点价格 A</label>
-            <input id="priceA" type="number" placeholder="65">
+    <!-- ========== 主面板0：持仓工具模块 ========== -->
+    <div id="mainPanel0" class="main-panel show">
+        <div class="tab-wrap">
+            <div class="tab active" onclick="switchTab(0)">持仓均价计算</div>
+            <div class="tab" onclick="switchTab(1)">预期盈亏测算</div>
         </div>
-        <div class="item">
-            <label id="labelP2">折返点价格 B</label>
-            <input id="priceB" type="number" placeholder="70">
+        <!-- 面板0：持仓均价 -->
+        <div id="panel0" class="panel show">
+            <div id="listWrap"></div>
+            <button class="add-line" onclick="addRow()">+ 添加一份持仓</button>
+            <button class="calc-full-btn" onclick="calcAvg()">开始计算</button>
+            <div class="result-block">
+                <div>平均持仓成本</div>
+                <div class="result-val" id="resultOut">—</div>
+                <div style="margin-top:12px;">持仓总花费</div>
+                <div class="result-val-sm" id="totalCostOut">—</div>
+            </div>
+        </div>
+        <!-- 面板1：预期盈亏测算 -->
+        <div id="panel1" class="panel">
+            <div class="item">
+                <label>交易方向</label>
+                <button class="direction-btn" id="dirBtn" onclick="toggleDirection()">买（多单）</button>
+            </div>
+            <div class="flex-row">
+                <div class="item">
+                    <label>订单开仓价</label>
+                    <input id="entryPrice" type="number" placeholder="例如 4580">
+                </div>
+                <div class="item">
+                    <label>开仓数量(手)</label>
+                    <input id="lotCount" type="number" placeholder="手数">
+                </div>
+            </div>
+            <div class="flex-row">
+                <div class="item">
+                    <label>当前市价</label>
+                    <input id="marketPrice" type="number" placeholder="现价">
+                </div>
+                <div class="item">
+                    <label>合约乘数</label>
+                    <input id="multiplier" type="number" value="10" list="multiplierList">
+                    <datalist id="multiplierList">
+                        <option value="5"></option>
+                        <option value="10"></option>
+                        <option value="100"></option>
+                    </datalist>
+                </div>
+            </div>
+            <button class="calc-full-btn" onclick="calcProfitAndSave()">开始计算</button>
+            <div class="profit-result">
+                <div class="profit-line">
+                    <div class="profit-label">持仓成本</div>
+                    <div class="profit-num" id="costOut">—</div>
+                </div>
+                <div class="profit-line">
+                    <div class="profit-label">当前市值</div>
+                    <div class="profit-num" id="marketValueOut">—</div>
+                </div>
+                <div class="profit-line">
+                    <div class="profit-label">预期盈亏</div>
+                    <div class="profit-num" id="profitOut">—</div>
+                </div>
+            </div>
+        </div>
+        <!--持仓工具历史记录-->
+        <div class="history-wrap">
+            <div class="history-title">📋 持仓计算历史（点击回填）</div>
+            <div class="clear-all" onclick="clearAllHistory()">清空全部历史</div>
+            <div id="historyBox"></div>
         </div>
     </div>
 
-    <!-- 2leg专属输入行：leg2起点 -->
-    <div class="flex-row" id="leg2-start-row">
-        <div class="item">
-            <label id="labelLeg2Start">leg2起点价格</label>
-            <input id="priceLeg2Start" type="number" placeholder="78">
+    <!-- ========== 主面板1：价格行为工具箱 ========== -->
+    <div id="mainPanel1" class="main-panel">
+        <div class="switch-buttons">
+            <button class="switch-btn active" id="btnMM" onclick="switchMode('mm')">测量移动 MM</button>
+            <button class="switch-btn" id="btnPB" onclick="switchMode('pb')">50%PB 回撤</button>
+            <button class="switch-btn" id="btn2leg" onclick="switchMode('2leg')">2leg 测算</button>
         </div>
-        <div class="item"></div>
-    </div>
-
-    <button class="calc-full-btn" onclick="calc()">计算目标位</button>
-
-    <div class="result-block">
-        <div id="result-title">测量移动目标列表</div>
-        <div id="resultContainer"></div>
-    </div>
-
-    <!--历史记录区域-->
-    <div class="history-wrap">
-        <div class="history-title">📋 计算历史（点击回填）</div>
-        <div class="clear-all" onclick="clearAllHistory()">清空全部历史</div>
-        <div id="historyBox"></div>
+        <p id="desc-text" style="font-size:14px;color:#666;margin:4px 0 20px 0;">
+            正向N：沿波段方向计算N个目标；反向M：跳过起点A向外计算M个目标<br>
+            例：A=65,B=70，正向N=1，反向M=2 →反向：60、55；正向：75
+        </p>
+        <!-- MM/PB共用的扩展参数行 -->
+        <div class="flex-row" id="extend-row">
+            <div class="item">
+                <label id="labelForward">正向计算数量N</label>
+                <input id="forwardN" type="number" value="1" min="0">
+            </div>
+            <div class="item">
+                <label id="labelBackward">反向计算数量M</label>
+                <input id="backwardM" type="number" value="0" min="0">
+            </div>
+        </div>
+        <!-- 通用价格输入行1（MM:A/P1；PB:高点；2leg:leg1起点） -->
+        <div class="flex-row">
+            <div class="item">
+                <label id="labelP1">起点价格 A</label>
+                <input id="priceA" type="number" placeholder="65">
+            </div>
+            <div class="item">
+                <label id="labelP2">折返点价格 B</label>
+                <input id="priceB" type="number" placeholder="70">
+            </div>
+        </div>
+        <!-- 2leg专属输入行：leg2起点 -->
+        <div class="flex-row" id="leg2-start-row">
+            <div class="item">
+                <label id="labelLeg2Start">leg2起点价格</label>
+                <input id="priceLeg2Start" type="number" placeholder="78">
+            </div>
+            <div class="item"></div>
+        </div>
+        <button class="calc-full-btn" onclick="calc()">计算目标位</button>
+        <div class="result-block">
+            <div id="result-title">测量移动目标列表</div>
+            <div id="resultContainer"></div>
+        </div>
+        <!--价格行为历史记录区域-->
+        <div class="history-wrap">
+            <div class="history-title">📋 价格行为计算历史（点击回填）</div>
+            <div class="clear-all" onclick="clearAllPaHistory()">清空全部历史</div>
+            <div id="paHistoryBox"></div>
+        </div>
     </div>
 </div>
-<script>
-let currentMode = "mm"; // mm / pb / 2leg
 
-// 切换模式
+<script>
+// ========== 一级大Tab切换：持仓工具 / 价格行为工具箱 ==========
+let currentMainTab = 0;
+function switchMainTab(idx){
+    currentMainTab = idx;
+    document.querySelectorAll(".main-tab").forEach((t,i)=>{
+        if(i===idx) t.classList.add("active");
+        else t.classList.remove("active");
+    })
+    document.querySelectorAll(".main-panel").forEach((p,i)=>{
+        if(i===idx) p.classList.add("show");
+        else p.classList.remove("show");
+    })
+}
+
+// ====================== 【持仓工具模块】 ======================
+let currentTab = 0;
+function switchTab(idx){
+    currentTab = idx;
+    document.querySelectorAll("#mainPanel0 .tab").forEach((t,i)=>{
+        if(i===idx) t.classList.add("active");
+        else t.classList.remove("active");
+    })
+    document.querySelectorAll("#mainPanel0 .panel").forEach((p,i)=>{
+        if(i===idx) p.classList.add("show");
+        else p.classList.remove("show");
+    })
+}
+// ========== 盈亏测算模块 ==========
+let isLong = true; // true=做多买，false=做空卖
+function toggleDirection(){
+    isLong = !isLong;
+    const btn = document.getElementById("dirBtn");
+    if(isLong){
+        btn.innerText = "买（多单）";
+        btn.style.background="#5288ed";
+    }else{
+        btn.innerText = "卖（空单）";
+        btn.style.background="#e17055";
+    }
+}
+function calcProfitAndSave(){
+    const entry = Number(document.getElementById("entryPrice").value);
+    const lot = Number(document.getElementById("lotCount").value);
+    const market = Number(document.getElementById("marketPrice").value);
+    const mul = Number(document.getElementById("multiplier").value);
+
+    const outCost = document.getElementById("costOut");
+    const outMarketValue = document.getElementById("marketValueOut");
+    const outDom = document.getElementById("profitOut");
+
+    if(!entry || !lot || !market || !mul){
+        outCost.innerText = "—";
+        outMarketValue.innerText = "—";
+        outDom.innerText = "输入有效数据";
+        outDom.className = "profit-num";
+        return;
+    }
+
+    const holdCost = entry * lot * mul;
+    const marketValue = market * lot * mul;
+    let diff = isLong ? (market - entry) : (entry - market);
+    let profit = diff * lot * mul;
+
+    outCost.innerText = holdCost.toFixed(2);
+    outMarketValue.innerText = marketValue.toFixed(2);
+    outDom.innerText = profit.toFixed(2);
+
+    outCost.className="profit-num";
+    outMarketValue.className="profit-num";
+    if(profit>0){
+        outDom.className="profit-num green";
+    }else if(profit<0){
+        outDom.className="profit-num red";
+    }else{
+        outDom.className="profit-num";
+    }
+
+    saveProfitToHistory({
+        type:"profit",
+        isLong: isLong,
+        entryPrice:entry,
+        lotCount:lot,
+        marketPrice:market,
+        multiplier:mul,
+        result:profit
+    });
+}
+function isRecordEqual(a,b){
+    const strA = JSON.stringify(a);
+    const strB = JSON.stringify(b);
+    return strA === strB;
+}
+function saveProfitToHistory(obj){
+    let history = JSON.parse(localStorage.getItem("costHistory")||"[]");
+    const exist = history.some(item => isRecordEqual(item, obj));
+    if(exist) return;
+    history.push(obj);
+    if(history.length>20) history.shift();
+    localStorage.setItem("costHistory",JSON.stringify(history));
+    renderHistory();
+}
+function fillProfitData(item){
+    isLong = item.isLong;
+    const btn = document.getElementById("dirBtn");
+    if(isLong){
+        btn.innerText = "买（多单）";
+        btn.style.background="#5288ed";
+    }else{
+        btn.innerText = "卖（空单）";
+        btn.style.background="#e17055";
+    }
+    document.getElementById("entryPrice").value = item.entryPrice;
+    document.getElementById("lotCount").value = item.lotCount;
+    document.getElementById("marketPrice").value = item.marketPrice;
+    document.getElementById("multiplier").value = item.multiplier;
+
+    document.getElementById("costOut").innerText = "—";
+    document.getElementById("marketValueOut").innerText = "—";
+    document.getElementById("profitOut").innerText = "—";
+    switchTab(1);
+}
+// ========== 持仓均价模块【调换：价格左边，数量右边】 ==========
+function addRow(qty="", price=""){
+    const wrap = document.getElementById("listWrap");
+    const div = document.createElement("div");
+    div.className = "row-wrap";
+    div.innerHTML = `
+        <div class="item">
+            <label>单份成本价 *</label>
+            <input class="inp-price" type="number" value="${price}">
+        </div>
+        <div class="item">
+            <label>持仓数量 *</label>
+            <input class="inp-qty" type="number" value="${qty}">
+        </div>
+        <div>
+            <button class="del-btn" onclick="this.closest('.row-wrap').remove()">删除</button>
+        </div>
+    `;
+    wrap.appendChild(div);
+}
+function getCurrentInputData(){
+    const rows = document.querySelectorAll("#mainPanel0 .row-wrap");
+    const arr = [];
+    for(let r of rows){
+        const qty = Number(r.querySelector(".inp-qty").value);
+        const price = Number(r.querySelector(".inp-price").value);
+        if(qty>0 && price>0){
+            arr.push({qty,price});
+        }
+    }
+    return arr;
+}
+function fillDataToInput(dataArr){
+    document.getElementById("listWrap").innerHTML = "";
+    dataArr.forEach(item=>{
+        addRow(item.qty, item.price);
+    })
+    switchTab(0);
+}
+function renderHistory(){
+    const box = document.getElementById("historyBox");
+    let history = JSON.parse(localStorage.getItem("costHistory") || "[]");
+    box.innerHTML = "";
+    if(history.length===0){
+        box.innerHTML = "<div style='color:#888'>暂无记录</div>";
+        return;
+    }
+    history.forEach((item,idx)=>{
+        const div = document.createElement("div");
+        div.className="history-item";
+        let showText = "";
+        if(item.type === "profit"){
+            const dirText = item.isLong?"多":"空";
+            showText = `<span class="tag-profit">盈亏</span>${dirText},${item.entryPrice},${item.lotCount}手,现价${item.marketPrice},盈亏${item.result.toFixed(2)}`;
+        }else{
+            showText = `<span class="tag-avg">均价</span>${item.map(x=>`${x.qty}@${x.price}`).join("，")}`;
+        }
+        div.innerHTML = `
+            <span>${showText}</span>
+            <button class="history-del">×</button>
+        `
+        div.onclick = (e)=>{
+            if(e.target.tagName==='BUTTON') return;
+            if(item.type==="profit"){
+                fillProfitData(item);
+            }else{
+                fillDataToInput(item);
+            }
+        }
+        div.querySelector(".history-del").onclick=(e)=>{
+            e.stopPropagation();
+            history.splice(idx,1);
+            localStorage.setItem("costHistory",JSON.stringify(history));
+            renderHistory();
+        }
+        box.appendChild(div);
+    })
+}
+function saveCurrentToHistory(dataArr){
+    if(dataArr.length===0) return;
+    let history = JSON.parse(localStorage.getItem("costHistory")||"[]");
+    const exist = history.some(item => isRecordEqual(item, dataArr));
+    if(exist) return;
+    history.push(dataArr);
+    if(history.length>20) history.shift();
+    localStorage.setItem("costHistory",JSON.stringify(history));
+    renderHistory();
+}
+function clearAllHistory(){
+    localStorage.removeItem("costHistory");
+    renderHistory();
+}
+function calcAvg(){
+    const rows = document.querySelectorAll("#mainPanel0 .row-wrap");
+    let totalMoney = 0;
+    let totalCount = 0;
+    for(let r of rows){
+        const qty = Number(r.querySelector(".inp-qty").value);
+        const price = Number(r.querySelector(".inp-price").value);
+        if(!qty || !price) continue;
+        totalMoney += qty * price;
+        totalCount += qty;
+    }
+    const outAvg = document.getElementById("resultOut");
+    const outTotalCost = document.getElementById("totalCostOut");
+    if(totalCount <=0){
+        outAvg.innerText = "输入有效持仓";
+        outTotalCost.innerText = "—";
+        return;
+    }
+    const avg = totalMoney / totalCount;
+    outAvg.innerText = avg.toFixed(3);
+    outTotalCost.innerText = totalMoney.toFixed(2);
+    saveCurrentToHistory(getCurrentInputData());
+}
+
+// ======================【价格行为工具箱模块】 ======================
+let currentMode = "mm"; // mm / pb / 2leg
 function switchMode(mode){
     currentMode = mode;
     document.getElementById("btnMM").classList.toggle("active", mode==="mm");
@@ -249,7 +686,6 @@ function switchMode(mode){
     const labelP2 = document.getElementById("labelP2");
     const extendRow = document.getElementById("extend-row");
     const leg2Row = document.getElementById("leg2-start-row");
-
     if(mode === "mm"){
         desc.innerHTML = `正向N：沿波段方向计算N个目标；反向M：跳过起点A向外计算M个目标<br>例：A=65,B=70，正向N=1，反向M=2 →反向：60、55；正向：75`;
         resTitle.innerText = "测量移动目标列表";
@@ -276,8 +712,6 @@ function switchMode(mode){
     }
     document.getElementById("resultContainer").innerHTML = "";
 }
-
-// 统一计算入口
 function calc(){
     if(currentMode === "mm"){
         calcMeasureMove();
@@ -287,22 +721,18 @@ function calc(){
         calc2Leg();
     }
 }
-
-// ========== 测量移动MM计算 ==========
 function calcMeasureMove(){
     const A = Number(document.getElementById("priceA").value);
     const B = Number(document.getElementById("priceB").value);
     const forwardN = Number(document.getElementById("forwardN").value)||0;
     const backwardM = Number(document.getElementById("backwardM").value)||0;
     const resultContainer = document.getElementById("resultContainer");
-
     if(!A || !B){
-        resultContainer.innerHTML = `<div class="result-item"><div class="result-val">请输入有效价格</div></div>`;
+        resultContainer.innerHTML = `<div class="result-item"><div class="result-val-sm">请输入有效价格</div></div>`;
         return;
     }
     const range = Math.abs(B - A);
     const isUp = B > A;
-
     const forwardTargets = [];
     for(let i=1;i<=forwardN;i++){
         let t;
@@ -313,7 +743,6 @@ function calcMeasureMove(){
         }
         forwardTargets.push({n:i, val:t});
     }
-
     const backwardTargets = [];
     for(let i=2;i<=backwardM+1;i++){
         let t;
@@ -324,11 +753,9 @@ function calcMeasureMove(){
         }
         backwardTargets.push({n: backwardTargets.length+1, val:t});
     }
-
     let html = "";
     const dirText = isUp ? "上涨波段" : "下跌波段";
     html += `<div class="result-desc">${dirText}｜基础幅度=${range.toFixed(3)}</div>`;
-
     if(backwardTargets.length>0){
         html += `<div style="margin-top:10px;"><span class="tag-backward">反向目标</span></div>`;
         backwardTargets.forEach(item=>{
@@ -336,7 +763,7 @@ function calcMeasureMove(){
             const coeff = item.n+1;
             html += `
             <div class="result-item">
-                <div class="result-val">反向${item.n}: ${item.val.toFixed(3)}</div>
+                <div class="result-val-sm">反向${item.n}: ${item.val.toFixed(3)}</div>
                 <div class="result-desc">= ${B} ${op} ${coeff} × ${range.toFixed(3)}</div>
             </div>
             `;
@@ -348,7 +775,7 @@ function calcMeasureMove(){
             const op = isUp ? "+" : "−";
             html += `
             <div class="result-item">
-                <div class="result-val">正向${item.n}: ${item.val.toFixed(3)}</div>
+                <div class="result-val-sm">正向${item.n}: ${item.val.toFixed(3)}</div>
                 <div class="result-desc">= ${B} ${op} ${item.n} × ${range.toFixed(3)}</div>
             </div>
             `;
@@ -357,9 +784,7 @@ function calcMeasureMove(){
     if(forwardTargets.length===0 && backwardTargets.length===0){
         html += `<div class="result-item"><div class="result-desc">N与M均为0，无输出目标</div></div>`;
     }
-
     resultContainer.innerHTML = html;
-
     saveToLocal({
         type:"measureMove",
         priceA:A,
@@ -372,32 +797,26 @@ function calcMeasureMove(){
         backwardTargets:backwardTargets
     });
 }
-
-// ========== 50%PB回撤计算 ==========
 function calcPB50(){
     const high = Number(document.getElementById("priceA").value);
     const low = Number(document.getElementById("priceB").value);
     const resultContainer = document.getElementById("resultContainer");
-
     if(!high || !low || high === low){
-        resultContainer.innerHTML = `<div class="result-item"><div class="result-val">请输入有效高低点价格，不能相等</div></div>`;
+        resultContainer.innerHTML = `<div class="result-item"><div class="result-val-sm">请输入有效高低点价格，不能相等</div></div>`;
         return;
     }
     const diff = Math.abs(high - low);
     const mid50 = (high + low) / 2;
-
     let html = "";
     html += `<div class="result-desc">高低振幅=${diff.toFixed(3)}</div>`;
     html += `<div style="margin-top:10px;"><span class="tag-pb">核心50%PB</span></div>`;
     html += `
         <div class="result-item">
-            <div class="result-val">50%中间位: ${mid50.toFixed(3)}</div>
+            <div class="result-val-sm">50%中间位: ${mid50.toFixed(3)}</div>
             <div class="result-desc">= (${high} + ${low}) ÷ 2</div>
         </div>
     `;
-
     resultContainer.innerHTML = html;
-
     saveToLocal({
         type:"pb50",
         high:high,
@@ -406,33 +825,27 @@ function calcPB50(){
         mid50:mid50
     });
 }
-
-// ========== 新增2leg等量测算 ==========
 function calc2Leg(){
     const leg1Start = Number(document.getElementById("priceA").value);
     const leg1End = Number(document.getElementById("priceB").value);
     const leg2Start = Number(document.getElementById("priceLeg2Start").value);
     const resultContainer = document.getElementById("resultContainer");
-
     if(!leg1Start || !leg1End || !leg2Start){
-        resultContainer.innerHTML = `<div class="result-item"><div class="result-val">请填写全部三个价格</div></div>`;
+        resultContainer.innerHTML = `<div class="result-item"><div class="result-val-sm">请填写全部三个价格</div></div>`;
         return;
     }
     const leg1Range = leg1End - leg1Start;
     const leg2End = leg2Start + leg1Range;
-
     let html = "";
     html += `<div class="result-desc">leg1波动幅度=${leg1Range.toFixed(3)}</div>`;
     html += `<div style="margin-top:10px;"><span class="tag-2leg">leg2终点</span></div>`;
     html += `
         <div class="result-item">
-            <div class="result-val">leg2终点: ${leg2End.toFixed(3)}</div>
+            <div class="result-val-sm">leg2终点: ${leg2End.toFixed(3)}</div>
             <div class="result-desc">= ${leg2Start} + (${leg1End} - ${leg1Start})</div>
         </div>
     `;
-
     resultContainer.innerHTML = html;
-
     saveToLocal({
         type:"2leg",
         leg1Start:leg1Start,
@@ -442,12 +855,6 @@ function calc2Leg(){
         leg2End:leg2End
     });
 }
-
-// ========== 历史记录通用逻辑 ==========
-function isRecordEqual(a,b){
-    return JSON.stringify(a) === JSON.stringify(b);
-}
-
 function saveToLocal(obj){
     let history = [];
     const raw = localStorage.getItem("toolHistory");
@@ -463,10 +870,10 @@ function saveToLocal(obj){
     history.push(obj);
     if(history.length>20) history.shift();
     localStorage.setItem("toolHistory",JSON.stringify(history));
-    renderHistory();
+    renderPaHistory();
 }
-
 function fillRecord(item){
+    switchMainTab(1);
     if(item.type === "measureMove"){
         switchMode("mm");
         document.getElementById("priceA").value = item.priceA;
@@ -485,9 +892,8 @@ function fillRecord(item){
     }
     document.getElementById("resultContainer").innerHTML = "";
 }
-
-function renderHistory(){
-    const box = document.getElementById("historyBox");
+function renderPaHistory(){
+    const box = document.getElementById("paHistoryBox");
     let history = [];
     const raw = localStorage.getItem("toolHistory");
     if(raw){
@@ -526,19 +932,21 @@ function renderHistory(){
             e.stopPropagation();
             history.splice(idx,1);
             localStorage.setItem("toolHistory",JSON.stringify(history));
-            renderHistory();
+            renderPaHistory();
         }
         box.appendChild(div);
     })
 }
-
-function clearAllHistory(){
+function clearAllPaHistory(){
     localStorage.removeItem("toolHistory");
-    renderHistory();
+    renderPaHistory();
 }
 
 window.onload = ()=>{
+    addRow();
+    addRow();
     renderHistory();
+    renderPaHistory();
 }
 </script>
 </body>
