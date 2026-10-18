@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>期货综合工具箱</title>
+    <title>Trading Tools</title>
     <style>
         * {
             box-sizing: border-box;
@@ -46,7 +46,7 @@
         .main-panel.show{
             display:block;
         }
-        /* 子tab（持仓工具内部）改回紫色，与calc按钮统一 */
+        /* 子tab（持仓工具内部）紫色，与calc按钮统一 */
         .tab-wrap{
             display:flex;
             gap:8px;
@@ -105,6 +105,12 @@
             font-size:15px;
             padding:8px 0;
             cursor:pointer;
+        }
+        .row-cost{
+            grid-column: 1 / -1;
+            font-size: 13px;
+            color: #9c27b0;
+            margin-top: -6px;
         }
         .calc-full-btn {
             width:100%;
@@ -298,7 +304,7 @@
 </head>
 <body>
 <div class="container">
-    <h3 style="margin-top:0;color:#444;">📈 期货综合工具箱</h3>
+    <h3 style="margin-top:0;color:#444;">📈 Trading Tools</h3>
     <!-- 一级大Tab -->
     <div class="main-tab-wrap">
         <div class="main-tab active" onclick="switchMainTab(0)">持仓工具</div>
@@ -313,11 +319,21 @@
         </div>
         <!-- 面板0：持仓均价 -->
         <div id="panel0" class="panel show">
+            <div class="item" style="margin-bottom:12px;">
+                <label>倍率（合约乘数）</label>
+                <input id="avgMultiplier" type="number" value="1" list="multiplierAvgList" oninput="updateRowCosts()">
+                <datalist id="multiplierAvgList">
+                    <option value="1"></option>
+                    <option value="5"></option>
+                    <option value="10"></option>
+                    <option value="100"></option>
+                </datalist>
+            </div>
             <div id="listWrap"></div>
             <button class="add-line" onclick="addRow()">+ 添加一份持仓</button>
             <button class="calc-full-btn" onclick="calcAvg()">开始计算</button>
             <div class="result-block">
-                <div>平均持仓成本</div>
+                <div>平均持仓成本价</div>
                 <div class="result-val" id="resultOut">—</div>
                 <div style="margin-top:12px;">持仓总花费</div>
                 <div class="result-val-sm" id="totalCostOut">—</div>
@@ -555,7 +571,10 @@ function fillProfitData(item){
     document.getElementById("profitOut").innerText = "—";
     switchTab(1);
 }
-// ========== 持仓均价模块【调换：价格左边，数量右边】 ==========
+// ========== 持仓均价模块【价格左，数量右，含倍率，每份成本】 ==========
+function getMultiplier(){
+    return Number(document.getElementById("avgMultiplier").value) || 1;
+}
 function addRow(qty="", price=""){
     const wrap = document.getElementById("listWrap");
     const div = document.createElement("div");
@@ -563,17 +582,51 @@ function addRow(qty="", price=""){
     div.innerHTML = `
         <div class="item">
             <label>单份成本价 *</label>
-            <input class="inp-price" type="number" value="${price}">
+            <input class="inp-price" type="number" value="${price}" oninput="updateRowCosts()">
         </div>
         <div class="item">
             <label>持仓数量 *</label>
-            <input class="inp-qty" type="number" value="${qty}">
+            <input class="inp-qty" type="number" value="${qty}" oninput="updateRowCosts()">
         </div>
         <div>
-            <button class="del-btn" onclick="this.closest('.row-wrap').remove()">删除</button>
+            <button class="del-btn" onclick="this.closest('.row-wrap').remove(); updateRowCosts();">删除</button>
         </div>
+        <div class="row-cost">该份持仓成本：—</div>
     `;
     wrap.appendChild(div);
+}
+function updateRowCosts(){
+    const rows = document.querySelectorAll("#mainPanel0 .row-wrap");
+    const mul = getMultiplier();
+    let totalMoney = 0; // 总花费（乘倍率，真实资金）
+    let totalCount = 0;
+    let priceQtySum = 0; // Σ(价格*数量)，用于计算平均持仓成本价，**不乘倍率**
+
+    rows.forEach(r=>{
+        const qty = Number(r.querySelector(".inp-qty").value);
+        const price = Number(r.querySelector(".inp-price").value);
+        const costEl = r.querySelector(".row-cost");
+        if(qty>0 && price>0){
+            const rowCost = qty * price * mul;
+            costEl.innerText = "该份持仓成本：" + rowCost.toFixed(2);
+            totalMoney += rowCost;
+            totalCount += qty;
+            priceQtySum += price * qty;
+        }else{
+            costEl.innerText = "该份持仓成本：—";
+        }
+    });
+    const outAvg = document.getElementById("resultOut");
+    const outTotalCost = document.getElementById("totalCostOut");
+    if(totalCount>0){
+        const avgPrice = priceQtySum / totalCount; // 均价，不乘倍率 ✅
+        outAvg.innerText = avgPrice.toFixed(3);
+        outTotalCost.innerText = totalMoney.toFixed(2);
+    }else{
+        outAvg.innerText = "—";
+        outTotalCost.innerText = "—";
+    }
+    return {totalMoney, totalCount};
 }
 function getCurrentInputData(){
     const rows = document.querySelectorAll("#mainPanel0 .row-wrap");
@@ -585,13 +638,18 @@ function getCurrentInputData(){
             arr.push({qty,price});
         }
     }
-    return arr;
+    return {rows: arr, multiplier: getMultiplier()};
 }
-function fillDataToInput(dataArr){
+function fillDataToInput(dataObj){
     document.getElementById("listWrap").innerHTML = "";
-    dataArr.forEach(item=>{
+    const rows = Array.isArray(dataObj) ? dataObj : dataObj.rows;
+    if(!Array.isArray(dataObj)){
+        document.getElementById("avgMultiplier").value = dataObj.multiplier ?? 1;
+    }
+    rows.forEach(item=>{
         addRow(item.qty, item.price);
     })
+    updateRowCosts();
     switchTab(0);
 }
 function renderHistory(){
@@ -610,7 +668,12 @@ function renderHistory(){
             const dirText = item.isLong?"多":"空";
             showText = `<span class="tag-profit">盈亏</span>${dirText},${item.entryPrice},${item.lotCount}手,现价${item.marketPrice},盈亏${item.result.toFixed(2)}`;
         }else{
-            showText = `<span class="tag-avg">均价</span>${item.map(x=>`${x.qty}@${x.price}`).join("，")}`;
+            if(Array.isArray(item)){
+                showText = `<span class="tag-avg">均价</span>${item.map(x=>`${x.qty}@${x.price}`).join("，")}`;
+            }else{
+                const m = item.multiplier ?? 1;
+                showText = `<span class="tag-avg">均价</span>倍率${m}：${item.rows.map(x=>`${x.qty}@${x.price}`).join("，")}`;
+            }
         }
         div.innerHTML = `
             <span>${showText}</span>
@@ -633,12 +696,13 @@ function renderHistory(){
         box.appendChild(div);
     })
 }
-function saveCurrentToHistory(dataArr){
-    if(dataArr.length===0) return;
+function saveCurrentToHistory(dataObj){
+    const rows = dataObj.rows || [];
+    if(rows.length===0) return;
     let history = JSON.parse(localStorage.getItem("costHistory")||"[]");
-    const exist = history.some(item => isRecordEqual(item, dataArr));
+    const exist = history.some(item => isRecordEqual(item, dataObj));
     if(exist) return;
-    history.push(dataArr);
+    history.push(dataObj);
     if(history.length>20) history.shift();
     localStorage.setItem("costHistory",JSON.stringify(history));
     renderHistory();
@@ -648,26 +712,12 @@ function clearAllHistory(){
     renderHistory();
 }
 function calcAvg(){
-    const rows = document.querySelectorAll("#mainPanel0 .row-wrap");
-    let totalMoney = 0;
-    let totalCount = 0;
-    for(let r of rows){
-        const qty = Number(r.querySelector(".inp-qty").value);
-        const price = Number(r.querySelector(".inp-price").value);
-        if(!qty || !price) continue;
-        totalMoney += qty * price;
-        totalCount += qty;
-    }
-    const outAvg = document.getElementById("resultOut");
-    const outTotalCost = document.getElementById("totalCostOut");
-    if(totalCount <=0){
-        outAvg.innerText = "输入有效持仓";
-        outTotalCost.innerText = "—";
+    const {totalCount} = updateRowCosts();
+    if(totalCount<=0){
+        document.getElementById("resultOut").innerText = "输入有效持仓";
+        document.getElementById("totalCostOut").innerText = "—";
         return;
     }
-    const avg = totalMoney / totalCount;
-    outAvg.innerText = avg.toFixed(3);
-    outTotalCost.innerText = totalMoney.toFixed(2);
     saveCurrentToHistory(getCurrentInputData());
 }
 
@@ -951,3 +1001,4 @@ window.onload = ()=>{
 </script>
 </body>
 </html>
+<!-- （注：内容由AI生成） -->
