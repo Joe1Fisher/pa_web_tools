@@ -536,8 +536,8 @@ function saveProfitToHistory(obj){
     let history = JSON.parse(localStorage.getItem("costHistory")||"[]");
     const exist = history.some(item => isRecordEqual(item, obj));
     if(exist) return;
-    history.push(obj);
-    if(history.length>20) history.shift();
+    history.unshift(obj); // 新增放顶部
+    if(history.length>20) history.pop();
     localStorage.setItem("costHistory",JSON.stringify(history));
     renderHistory();
 }
@@ -635,7 +635,6 @@ function fillDataToInput(dataObj){
         document.getElementById("avgMultiplier").value = dataObj.multiplier ?? 1;
     }
     rows.forEach(item=>{
-        // 修复：原来 addRow(item.qty, item.price) 参数顺序颠倒
         addRow(item.qty, item.price);
     })
     updateRowCosts();
@@ -658,10 +657,11 @@ function renderHistory(){
             showText = `<span class="tag-profit">盈亏</span>${dirText},${item.entryPrice},${item.lotCount}手,现价${item.marketPrice},盈亏${item.result.toFixed(2)}`;
         }else{
             if(Array.isArray(item)){
-                showText = `<span class="tag-avg">均价</span>${item.map(x=>`${x.qty}@${x.price}`).join("，")}`;
+                // 修改展示：price@qty，价格在前数量在后
+                showText = `<span class="tag-avg">均价</span>${item.map(x=>`${x.price}@${x.qty}`).join("，")}`;
             }else{
                 const m = item.multiplier ?? 1;
-                showText = `<span class="tag-avg">均价</span>倍率${m}：${item.rows.map(x=>`${x.qty}@${x.price}`).join("，")}`;
+                showText = `<span class="tag-avg">均价</span>倍率${m}：${item.rows.map(x=>`${x.price}@${x.qty}`).join("，")}`;
             }
         }
         div.innerHTML = `
@@ -691,8 +691,8 @@ function saveCurrentToHistory(dataObj){
     let history = JSON.parse(localStorage.getItem("costHistory")||"[]");
     const exist = history.some(item => isRecordEqual(item, dataObj));
     if(exist) return;
-    history.push(dataObj);
-    if(history.length>20) history.shift();
+    history.unshift(dataObj); // 新增记录置顶
+    if(history.length>20) history.pop();
     localStorage.setItem("costHistory",JSON.stringify(history));
     renderHistory();
 }
@@ -905,8 +905,8 @@ function saveToLocal(obj){
     }
     const exist = history.some(x=>isRecordEqual(x,obj));
     if(exist) return;
-    history.push(obj);
-    if(history.length>20) history.shift();
+    history.unshift(obj); //价格行为工具箱历史新增置顶
+    if(history.length>20) history.pop();
     localStorage.setItem("toolHistory",JSON.stringify(history));
     renderPaHistory();
 }
