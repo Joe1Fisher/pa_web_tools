@@ -310,7 +310,6 @@
         <div class="main-tab active" onclick="switchMainTab(0)">持仓工具</div>
         <div class="main-tab" onclick="switchMainTab(1)">价格行为工具箱</div>
     </div>
-
     <!-- ========== 主面板0：持仓工具模块 ========== -->
     <div id="mainPanel0" class="main-panel show">
         <div class="tab-wrap">
@@ -393,7 +392,6 @@
             <div id="historyBox"></div>
         </div>
     </div>
-
     <!-- ========== 主面板1：价格行为工具箱 ========== -->
     <div id="mainPanel1" class="main-panel">
         <div class="switch-buttons">
@@ -448,7 +446,6 @@
         </div>
     </div>
 </div>
-
 <script>
 // ========== 一级大Tab切换：持仓工具 / 价格行为工具箱 ==========
 let currentMainTab = 0;
@@ -463,7 +460,6 @@ function switchMainTab(idx){
         else p.classList.remove("show");
     })
 }
-
 // ====================== 【持仓工具模块】 ======================
 let currentTab = 0;
 function switchTab(idx){
@@ -495,11 +491,9 @@ function calcProfitAndSave(){
     const lot = Number(document.getElementById("lotCount").value);
     const market = Number(document.getElementById("marketPrice").value);
     const mul = Number(document.getElementById("multiplier").value);
-
     const outCost = document.getElementById("costOut");
     const outMarketValue = document.getElementById("marketValueOut");
     const outDom = document.getElementById("profitOut");
-
     if(!entry || !lot || !market || !mul){
         outCost.innerText = "—";
         outMarketValue.innerText = "—";
@@ -507,16 +501,13 @@ function calcProfitAndSave(){
         outDom.className = "profit-num";
         return;
     }
-
     const holdCost = entry * lot * mul;
     const marketValue = market * lot * mul;
     let diff = isLong ? (market - entry) : (entry - market);
     let profit = diff * lot * mul;
-
     outCost.innerText = holdCost.toFixed(2);
     outMarketValue.innerText = marketValue.toFixed(2);
     outDom.innerText = profit.toFixed(2);
-
     outCost.className="profit-num";
     outMarketValue.className="profit-num";
     if(profit>0){
@@ -526,7 +517,6 @@ function calcProfitAndSave(){
     }else{
         outDom.className="profit-num";
     }
-
     saveProfitToHistory({
         type:"profit",
         isLong: isLong,
@@ -565,7 +555,6 @@ function fillProfitData(item){
     document.getElementById("lotCount").value = item.lotCount;
     document.getElementById("marketPrice").value = item.marketPrice;
     document.getElementById("multiplier").value = item.multiplier;
-
     document.getElementById("costOut").innerText = "—";
     document.getElementById("marketValueOut").innerText = "—";
     document.getElementById("profitOut").innerText = "—";
@@ -601,7 +590,6 @@ function updateRowCosts(){
     let totalMoney = 0; // 总花费（乘倍率，真实资金）
     let totalCount = 0;
     let priceQtySum = 0; // Σ(价格*数量)，用于计算平均持仓成本价，**不乘倍率**
-
     rows.forEach(r=>{
         const qty = Number(r.querySelector(".inp-qty").value);
         const price = Number(r.querySelector(".inp-price").value);
@@ -647,6 +635,7 @@ function fillDataToInput(dataObj){
         document.getElementById("avgMultiplier").value = dataObj.multiplier ?? 1;
     }
     rows.forEach(item=>{
+        // 修复：原来 addRow(item.qty, item.price) 参数顺序颠倒
         addRow(item.qty, item.price);
     })
     updateRowCosts();
@@ -720,7 +709,6 @@ function calcAvg(){
     }
     saveCurrentToHistory(getCurrentInputData());
 }
-
 // ======================【价格行为工具箱模块】 ======================
 let currentMode = "mm"; // mm / pb / 2leg
 function switchMode(mode){
@@ -991,7 +979,6 @@ function clearAllPaHistory(){
     localStorage.removeItem("toolHistory");
     renderPaHistory();
 }
-
 window.onload = ()=>{
     addRow();
     addRow();
@@ -1001,4 +988,3 @@ window.onload = ()=>{
 </script>
 </body>
 </html>
-<!-- （注：内容由AI生成） -->
