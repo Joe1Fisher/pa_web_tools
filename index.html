@@ -239,6 +239,14 @@
             padding:2px 5px;
             margin-right:6px;
         }
+        .tag-budget{
+            font-size:11px;
+            background:#e1f5ee;
+            color:#206060;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
         .tag-backward{
             font-size:12px;
             background:#ffe8ef;
@@ -312,9 +320,11 @@
     </div>
     <!-- ========== 主面板0：持仓工具模块 ========== -->
     <div id="mainPanel0" class="main-panel show">
+        <!-- 子Tab：3个平级【已简化名称】 -->
         <div class="tab-wrap">
-            <div class="tab active" onclick="switchTab(0)">持仓均价计算</div>
-            <div class="tab" onclick="switchTab(1)">预期盈亏测算</div>
+            <div class="tab active" onclick="switchTab(0)">持仓均价</div>
+            <div class="tab" onclick="switchTab(1)">预期盈亏</div>
+            <div class="tab" onclick="switchTab(2)">预算数量</div>
         </div>
         <!-- 面板0：持仓均价 -->
         <div id="panel0" class="panel show">
@@ -385,6 +395,39 @@
                 </div>
             </div>
         </div>
+        <!-- 面板2：预算数量 -->
+        <div id="panel2" class="panel">
+            <div class="item">
+                <label>倍率（合约乘数）</label>
+                <input id="budgetMul" type="number" value="1" list="multiplierAvgList">
+            </div>
+            <div class="flex-row">
+                <div class="item">
+                    <label>标的单价</label>
+                    <input id="budgetPrice" type="number" placeholder="开仓单价">
+                </div>
+                <div class="item">
+                    <label>总预算资金</label>
+                    <input id="budgetTotal" type="number" placeholder="可用预算">
+                </div>
+            </div>
+            <button class="calc-full-btn" onclick="calcBudgetBuy()">按预算计算最大可买</button>
+            <div class="result-block">
+                <div class="result-item">
+                    <div>最大可购买数量</div>
+                    <div class="result-val" id="budgetMaxQty">—</div>
+                </div>
+                <div class="result-item">
+                    <div>实际占用资金</div>
+                    <div class="result-val-sm" id="budgetUsed">—</div>
+                </div>
+                <div class="result-item">
+                    <div>预算完成率</div>
+                    <div class="result-val-sm" id="budgetRate">—</div>
+                </div>
+                <div class="result-desc">说明：数量向下取整，保证实际占用不超过总预算</div>
+            </div>
+        </div>
         <!--持仓工具历史记录-->
         <div class="history-wrap">
             <div class="history-title">📋 持仓计算历史（点击回填）</div>
@@ -395,9 +438,9 @@
     <!-- ========== 主面板1：价格行为工具箱 ========== -->
     <div id="mainPanel1" class="main-panel">
         <div class="switch-buttons">
-            <button class="switch-btn active" id="btnMM" onclick="switchMode('mm')">测量移动 MM</button>
-            <button class="switch-btn" id="btnPB" onclick="switchMode('pb')">50%PB 回撤</button>
-            <button class="switch-btn" id="btn2leg" onclick="switchMode('2leg')">2leg 测算</button>
+            <button class="switch-btn active" id="btnMM" onclick="switchMode('mm')">MM</button>
+            <button class="switch-btn" id="btnPB" onclick="switchMode('pb')">50%PB</button>
+            <button class="switch-btn" id="btn2leg" onclick="switchMode('2leg')">2leg</button>
         </div>
         <p id="desc-text" style="font-size:14px;color:#666;margin:4px 0 20px 0;">
             正向N：沿波段方向计算N个目标；反向M：跳过起点A向外计算M个目标<br>
@@ -560,7 +603,63 @@ function fillProfitData(item){
     document.getElementById("profitOut").innerText = "—";
     switchTab(1);
 }
-// ========== 持仓均价模块【价格左，数量右，含倍率，每份成本】 ==========
+
+// ========== 预算数量模块 ==========
+function calcBudgetBuy(){
+    const mul = Number(document.getElementById("budgetMul").value)||1;
+    const price = Number(document.getElementById("budgetPrice").value);
+    const budgetVal = Number(document.getElementById("budgetTotal").value);
+
+    const elMaxQty = document.getElementById("budgetMaxQty");
+    const elUsed = document.getElementById("budgetUsed");
+    const elRate = document.getElementById("budgetRate");
+
+    if(!budgetVal || budgetVal <=0 || !price || price <=0){
+        elMaxQty.innerText = "—";
+        elUsed.innerText = "—";
+        elRate.innerText = "请填写单价与总预算";
+        return;
+    }
+    const perOneCost = price * mul;
+    const maxQty = Math.floor(budgetVal / perOneCost);
+    const usedMoney = maxQty * perOneCost;
+    const rate = (usedMoney / budgetVal)*100;
+
+    elMaxQty.innerText = maxQty;
+    elUsed.innerText = usedMoney.toFixed(2);
+    elRate.innerText = rate.toFixed(1)+" %";
+
+    const rec = {
+        type:"budget",
+        multiplier:mul,
+        price:price,
+        budget:budgetVal,
+        maxQty:maxQty,
+        used:usedMoney,
+        rate:rate
+    };
+    saveBudgetToHistory(rec);
+}
+function saveBudgetToHistory(obj){
+    let history = JSON.parse(localStorage.getItem("costHistory")||"[]");
+    const exist = history.some(item => isRecordEqual(item, obj));
+    if(exist) return;
+    history.unshift(obj);
+    if(history.length>20) history.pop();
+    localStorage.setItem("costHistory",JSON.stringify(history));
+    renderHistory();
+}
+function fillBudgetData(item){
+    document.getElementById("budgetMul").value = item.multiplier;
+    document.getElementById("budgetPrice").value = item.price;
+    document.getElementById("budgetTotal").value = item.budget;
+    document.getElementById("budgetMaxQty").innerText = "—";
+    document.getElementById("budgetUsed").innerText = "—";
+    document.getElementById("budgetRate").innerText = "—";
+    switchTab(2);
+}
+
+// ========== 持仓均价模块 ==========
 function getMultiplier(){
     return Number(document.getElementById("avgMultiplier").value) || 1;
 }
@@ -655,9 +754,10 @@ function renderHistory(){
         if(item.type === "profit"){
             const dirText = item.isLong?"多":"空";
             showText = `<span class="tag-profit">盈亏</span>${dirText},${item.entryPrice},${item.lotCount}手,现价${item.marketPrice},盈亏${item.result.toFixed(2)}`;
+        }else if(item.type === "budget"){
+            showText = `<span class="tag-budget">预算</span>单价${item.price},预算${item.budget},最大可买${item.maxQty},完成率${item.rate.toFixed(1)}%`;
         }else{
             if(Array.isArray(item)){
-                // 修改展示：price@qty，价格在前数量在后
                 showText = `<span class="tag-avg">均价</span>${item.map(x=>`${x.price}@${x.qty}`).join("，")}`;
             }else{
                 const m = item.multiplier ?? 1;
@@ -672,6 +772,8 @@ function renderHistory(){
             if(e.target.tagName==='BUTTON') return;
             if(item.type==="profit"){
                 fillProfitData(item);
+            }else if(item.type==="budget"){
+                fillBudgetData(item);
             }else{
                 fillDataToInput(item);
             }
@@ -709,6 +811,7 @@ function calcAvg(){
     }
     saveCurrentToHistory(getCurrentInputData());
 }
+
 // ======================【价格行为工具箱模块】 ======================
 let currentMode = "mm"; // mm / pb / 2leg
 function switchMode(mode){
@@ -954,7 +1057,7 @@ function renderPaHistory(){
         if(item.type === "measureMove"){
             tagText = `<span class="tag-mm">MM(N${item.forwardN},M${item.backwardM})</span>A:${item.priceA},B:${item.priceB}`;
         }else if(item.type === "pb50"){
-            tagText = `<span class="tag-mm">PB50</span>高点:${item.high},低点:${item.low}`;
+            tagText = `<span class="tag-mm">50%PB</span>高点:${item.high},低点:${item.low}`;
         }else{
             tagText = `<span class="tag-mm">2leg</span>leg1(${item.leg1Start}→${item.leg1End}),leg2起点:${item.leg2Start}`;
         }
