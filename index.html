@@ -279,6 +279,14 @@
             padding:2px 5px;
             margin-right:6px;
         }
+        .tag-pr{
+            font-size:12px;
+            background:#fff0e0;
+            color:#b06020;
+            border-radius:4px;
+            padding:2px 5px;
+            margin-right:6px;
+        }
         .tag-mm{
             font-size:11px;
             background:#dcc8e8;
@@ -291,9 +299,11 @@
             display:flex;
             gap:10px;
             margin-bottom:20px;
+            flex-wrap:wrap;
         }
         .switch-btn{
             flex:1;
+            min-width:70px;
             padding:10px;
             border:none;
             border-radius:8px;
@@ -441,6 +451,7 @@
             <button class="switch-btn active" id="btnMM" onclick="switchMode('mm')">MM</button>
             <button class="switch-btn" id="btnPB" onclick="switchMode('pb')">50%PB</button>
             <button class="switch-btn" id="btn2leg" onclick="switchMode('2leg')">2leg</button>
+            <button class="switch-btn" id="btnPR" onclick="switchMode('pr')">P&R</button>
         </div>
         <p id="desc-text" style="font-size:14px;color:#666;margin:4px 0 20px 0;">
             正向N：沿波段方向计算N个目标；反向M：跳过起点A向外计算M个目标<br>
@@ -458,7 +469,7 @@
             </div>
         </div>
         <!-- 通用价格输入行1（MM:A/P1；PB:高点；2leg:leg1起点） -->
-        <div class="flex-row">
+        <div class="flex-row" id="priceAB-row">
             <div class="item">
                 <label id="labelP1">起点价格 A</label>
                 <input id="priceA" type="number" placeholder="65">
@@ -476,9 +487,23 @@
             </div>
             <div class="item"></div>
         </div>
+        <!-- P&R 盈亏比胜率输入区域 -->
+        <div id="pr-input-area" class="hide-row">
+            <div class="flex-row">
+                <div class="item">
+                    <label>盈亏比 R（盈利/亏损）</label>
+                    <input id="prRiskReward" type="number" step="0.01" placeholder="2 代表2:1盈亏比" oninput="calcPR()">
+                </div>
+                <div class="item">
+                    <label>实际胜率 %（选填）</label>
+                    <input id="prWinRate" type="number" step="0.01" placeholder="例如40，不填只算保本胜率" oninput="calcPR()">
+                </div>
+            </div>
+        </div>
+
         <button class="calc-full-btn" onclick="calc()">计算目标位</button>
         <div class="result-block">
-            <div id="result-title">测量移动目标列表</div>
+            <div id="result-title">盈亏比&胜率输出</div>
             <div id="resultContainer"></div>
         </div>
         <!--价格行为历史记录区域-->
@@ -603,17 +628,14 @@ function fillProfitData(item){
     document.getElementById("profitOut").innerText = "—";
     switchTab(1);
 }
-
 // ========== 预算数量模块 ==========
 function calcBudgetBuy(){
     const mul = Number(document.getElementById("budgetMul").value)||1;
     const price = Number(document.getElementById("budgetPrice").value);
     const budgetVal = Number(document.getElementById("budgetTotal").value);
-
     const elMaxQty = document.getElementById("budgetMaxQty");
     const elUsed = document.getElementById("budgetUsed");
     const elRate = document.getElementById("budgetRate");
-
     if(!budgetVal || budgetVal <=0 || !price || price <=0){
         elMaxQty.innerText = "—";
         elUsed.innerText = "—";
@@ -624,11 +646,9 @@ function calcBudgetBuy(){
     const maxQty = Math.floor(budgetVal / perOneCost);
     const usedMoney = maxQty * perOneCost;
     const rate = (usedMoney / budgetVal)*100;
-
     elMaxQty.innerText = maxQty;
     elUsed.innerText = usedMoney.toFixed(2);
     elRate.innerText = rate.toFixed(1)+" %";
-
     const rec = {
         type:"budget",
         multiplier:mul,
@@ -658,7 +678,6 @@ function fillBudgetData(item){
     document.getElementById("budgetRate").innerText = "—";
     switchTab(2);
 }
-
 // ========== 持仓均价模块 ==========
 function getMultiplier(){
     return Number(document.getElementById("avgMultiplier").value) || 1;
@@ -811,22 +830,33 @@ function calcAvg(){
     }
     saveCurrentToHistory(getCurrentInputData());
 }
-
 // ======================【价格行为工具箱模块】 ======================
-let currentMode = "mm"; // mm / pb / 2leg
+let currentMode = "mm"; // mm / pb / 2leg / pr
 function switchMode(mode){
     currentMode = mode;
     document.getElementById("btnMM").classList.toggle("active", mode==="mm");
     document.getElementById("btnPB").classList.toggle("active", mode==="pb");
     document.getElementById("btn2leg").classList.toggle("active", mode==="2leg");
+    document.getElementById("btnPR").classList.toggle("active", mode==="pr");
+
     const desc = document.getElementById("desc-text");
     const resTitle = document.getElementById("result-title");
     const labelF = document.getElementById("labelForward");
     const labelB = document.getElementById("labelBackward");
     const labelP1 = document.getElementById("labelP1");
     const labelP2 = document.getElementById("labelP2");
+
     const extendRow = document.getElementById("extend-row");
     const leg2Row = document.getElementById("leg2-start-row");
+    const priceABRow = document.getElementById("priceAB-row");
+    const prInputArea = document.getElementById("pr-input-area");
+
+    // 全部先隐藏
+    extendRow.classList.add("hide-row");
+    leg2Row.classList.add("hide-row");
+    priceABRow.classList.add("hide-row");
+    prInputArea.classList.add("hide-row");
+
     if(mode === "mm"){
         desc.innerHTML = `正向N：沿波段方向计算N个目标；反向M：跳过起点A向外计算M个目标<br>例：A=65,B=70，正向N=1，反向M=2 →反向：60、55；正向：75`;
         resTitle.innerText = "测量移动目标列表";
@@ -835,33 +865,74 @@ function switchMode(mode){
         labelP1.innerText = "起点价格 A";
         labelP2.innerText = "折返点价格 B";
         extendRow.classList.remove("hide-row");
-        leg2Row.classList.add("hide-row");
+        priceABRow.classList.remove("hide-row");
     }else if(mode === "pb"){
         desc.innerHTML = `50%PB回撤计算：输入高低两点，自动算出50%中间位`;
         resTitle.innerText = "50%PB回撤结果";
         labelP1.innerText = "高点价格";
         labelP2.innerText = "低点价格";
-        extendRow.classList.add("hide-row");
-        leg2Row.classList.add("hide-row");
-    }else{
+        priceABRow.classList.remove("hide-row");
+    }else if(mode === "2leg"){
         desc.innerHTML = `2leg等量测算：输入leg1起点、leg1终点、leg2起点，自动算出leg2终点<br>例：leg1(75→80)，leg2起点78 → 终点=78+(80-75)=83`;
         resTitle.innerText = "2leg测算结果";
         labelP1.innerText = "leg1起点";
         labelP2.innerText = "leg1终点";
-        extendRow.classList.add("hide-row");
+        priceABRow.classList.remove("hide-row");
         leg2Row.classList.remove("hide-row");
+    }else if(mode === "pr"){
+        desc.innerHTML = `P&R盈亏比计算器：R=平均盈利/平均亏损；保本胜率 p₀ = 1/(1+R)；实际胜率>保本胜率，长期盈利。<br>期望 E = p*R − (1−p)`;
+        resTitle.innerText = "盈亏比&胜率输出";
+        prInputArea.classList.remove("hide-row");
     }
     document.getElementById("resultContainer").innerHTML = "";
 }
+
 function calc(){
     if(currentMode === "mm"){
         calcMeasureMove();
     }else if(currentMode === "pb"){
         calcPB50();
-    }else{
+    }else if(currentMode === "2leg"){
         calc2Leg();
+    }else if(currentMode === "pr"){
+        calcPR();
     }
 }
+
+// ========= P&R盈亏比胜率计算【修正后，匹配你图片公式】 =========
+function calcPR(){
+    const rr = Number(document.getElementById("prRiskReward").value);
+    const winRateInput = Number(document.getElementById("prWinRate").value);
+    const container = document.getElementById("resultContainer");
+    if(!rr || rr <= 0){
+        container.innerHTML = `<div class="result-item"><div class="result-val-sm">请输入有效的盈亏比R>0（盈利/亏损）</div></div>`;
+        return;
+    }
+    // 保本胜率：p0 = 1/(1+R)
+    const breakEvenPct = 1 / (1 + rr) * 100;
+    let html = `<div class="result-item">
+        <div class="result-val-sm">保本（打平）胜率：${breakEvenPct.toFixed(2)} %</div>
+        <div class="result-desc">盈亏比 R=${rr}:1；长期盈利需要实际胜率 > ${breakEvenPct.toFixed(2)}%</div>
+    </div>`;
+
+    if(!isNaN(winRateInput) && winRateInput>0 && winRateInput <=100){
+        const p = winRateInput / 100;
+        const expectation = p * rr - (1 - p);
+        html += `<div class="result-item">
+            <div class="result-val-sm">单次期望：${expectation.toFixed(3)} R</div>
+            <div class="result-desc">实际胜率 ${winRateInput.toFixed(2)}%；期望>0为正期望策略</div>
+        </div>`;
+    }
+    container.innerHTML = html;
+
+    saveToLocal({
+        type:"pr",
+        riskReward: rr,
+        winRatePct: (!isNaN(winRateInput) && winRateInput>0) ? winRateInput : null,
+        breakEvenPct: breakEvenPct
+    });
+}
+
 function calcMeasureMove(){
     const A = Number(document.getElementById("priceA").value);
     const B = Number(document.getElementById("priceB").value);
@@ -1030,6 +1101,10 @@ function fillRecord(item){
         document.getElementById("priceA").value = item.leg1Start;
         document.getElementById("priceB").value = item.leg1End;
         document.getElementById("priceLeg2Start").value = item.leg2Start;
+    }else if(item.type === "pr"){
+        switchMode("pr");
+        document.getElementById("prRiskReward").value = item.riskReward;
+        document.getElementById("prWinRate").value = item.winRatePct ?? "";
     }
     document.getElementById("resultContainer").innerHTML = "";
 }
@@ -1058,8 +1133,11 @@ function renderPaHistory(){
             tagText = `<span class="tag-mm">MM(N${item.forwardN},M${item.backwardM})</span>A:${item.priceA},B:${item.priceB}`;
         }else if(item.type === "pb50"){
             tagText = `<span class="tag-mm">50%PB</span>高点:${item.high},低点:${item.low}`;
-        }else{
+        }else if(item.type === "2leg"){
             tagText = `<span class="tag-mm">2leg</span>leg1(${item.leg1Start}→${item.leg1End}),leg2起点:${item.leg2Start}`;
+        }else if(item.type === "pr"){
+            const wrText = item.winRatePct ? `,胜率${item.winRatePct}%` : "";
+            tagText = `<span class="tag-pr">P&R</span>盈亏比${item.riskReward}:1${wrText},保本胜率${item.breakEvenPct.toFixed(2)}%`;
         }
         div.innerHTML = `
             <span>${tagText}</span>
