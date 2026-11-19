@@ -50,7 +50,7 @@
         .tab-wrap{
             display:flex;
             gap:8px;
-            margin-bottom:20px;
+            margin-bottom:12px;
         }
         .tab{
             flex:1;
@@ -318,6 +318,12 @@
         .hide-row{
             display: none;
         }
+        .global-mul-wrap{
+            margin-bottom:16px;
+            padding:12px;
+            background:#f4f0f9;
+            border-radius:10px;
+        }
     </style>
 </head>
 <body>
@@ -330,6 +336,22 @@
     </div>
     <!-- ========== 主面板0：持仓工具模块 ========== -->
     <div id="mainPanel0" class="main-panel show">
+        <!-- ✅【全局统一合约乘数，放在子Tab上方】 -->
+        <div class="global-mul-wrap">
+            <div class="item">
+                <label>🔗全局合约乘数（全部子工具共用）</label>
+                <input id="globalMultiplier" type="number" value="1" list="globalMulList" oninput="onGlobalMulChange()">
+                <datalist id="globalMulList">
+                    <option value="1">1 默认</option>
+                    <option value="5">5 PVC</option>
+                    <option value="10">10 M豆粕</option>
+                    <option value="15">15 Ag沪银</option>
+                    <option value="100">100 A股</option>
+                    <option value="1000">1000 Au沪金/SC原油</option>
+                </datalist>
+            </div>
+        </div>
+
         <!-- 子Tab：3个平级【已简化名称】 -->
         <div class="tab-wrap">
             <div class="tab active" onclick="switchTab(0)">持仓均价</div>
@@ -338,16 +360,6 @@
         </div>
         <!-- 面板0：持仓均价 -->
         <div id="panel0" class="panel show">
-            <div class="item" style="margin-bottom:12px;">
-                <label>倍率（合约乘数）</label>
-                <input id="avgMultiplier" type="number" value="1" list="multiplierAvgList" oninput="updateRowCosts()">
-                <datalist id="multiplierAvgList">
-                    <option value="1"></option>
-                    <option value="5"></option>
-                    <option value="10"></option>
-                    <option value="100"></option>
-                </datalist>
-            </div>
             <div id="listWrap"></div>
             <button class="add-line" onclick="addRow()">+ 添加一份持仓</button>
             <button class="calc-full-btn" onclick="calcAvg()">开始计算</button>
@@ -379,15 +391,8 @@
                     <label>当前市价</label>
                     <input id="marketPrice" type="number" placeholder="现价">
                 </div>
-                <div class="item">
-                    <label>合约乘数</label>
-                    <input id="multiplier" type="number" value="10" list="multiplierList">
-                    <datalist id="multiplierList">
-                        <option value="5"></option>
-                        <option value="10"></option>
-                        <option value="100"></option>
-                    </datalist>
-                </div>
+                <!-- 删除原来的合约乘数输入框 -->
+                <div class="item"></div>
             </div>
             <button class="calc-full-btn" onclick="calcProfitAndSave()">开始计算</button>
             <div class="profit-result">
@@ -407,10 +412,6 @@
         </div>
         <!-- 面板2：预算数量 -->
         <div id="panel2" class="panel">
-            <div class="item">
-                <label>倍率（合约乘数）</label>
-                <input id="budgetMul" type="number" value="1" list="multiplierAvgList">
-            </div>
             <div class="flex-row">
                 <div class="item">
                     <label>标的单价</label>
@@ -418,7 +419,7 @@
                 </div>
                 <div class="item">
                     <label>总预算资金</label>
-                    <input id="budgetTotal" type="number" placeholder="可用预算">
+                    <input id="budgetTotal" type="number" value="5000" placeholder="可用预算">
                 </div>
             </div>
             <button class="calc-full-btn" onclick="calcBudgetBuy()">按预算计算最大可买</button>
@@ -496,17 +497,16 @@
                 </div>
                 <div class="item">
                     <label>实际胜率 %（选填）</label>
-                    <input id="prWinRate" type="number" step="0.01" placeholder="例如40，不填只算保本胜率" oninput="calcPR()">
+                    <input id="prWinRate" type="number" step="0.01" placeholder="例如40，不填只算打平胜率" oninput="calcPR()">
                 </div>
             </div>
         </div>
-
         <button class="calc-full-btn" onclick="calc()">计算目标位</button>
         <div class="result-block">
             <div id="result-title">盈亏比&胜率输出</div>
             <div id="resultContainer"></div>
         </div>
-        <!--价格行为历史记录区域-->
+        <!--价格行为工具箱历史记录区域-->
         <div class="history-wrap">
             <div class="history-title">📋 价格行为计算历史（点击回填）</div>
             <div class="clear-all" onclick="clearAllPaHistory()">清空全部历史</div>
@@ -541,6 +541,16 @@ function switchTab(idx){
         else p.classList.remove("show");
     })
 }
+
+// ✅全局合约乘数读取
+function getGlobalMultiplier(){
+    return Number(document.getElementById("globalMultiplier").value) || 1;
+}
+function onGlobalMulChange(){
+    // 切换乘数，立刻刷新持仓均价面板各行成本预览
+    updateRowCosts();
+}
+
 // ========== 盈亏测算模块 ==========
 let isLong = true; // true=做多买，false=做空卖
 function toggleDirection(){
@@ -558,7 +568,7 @@ function calcProfitAndSave(){
     const entry = Number(document.getElementById("entryPrice").value);
     const lot = Number(document.getElementById("lotCount").value);
     const market = Number(document.getElementById("marketPrice").value);
-    const mul = Number(document.getElementById("multiplier").value);
+    const mul = getGlobalMultiplier();
     const outCost = document.getElementById("costOut");
     const outMarketValue = document.getElementById("marketValueOut");
     const outDom = document.getElementById("profitOut");
@@ -619,10 +629,11 @@ function fillProfitData(item){
         btn.innerText = "卖（空单）";
         btn.style.background="#e17055";
     }
+    //回填全局乘数
+    document.getElementById("globalMultiplier").value = item.multiplier ?? 1;
     document.getElementById("entryPrice").value = item.entryPrice;
     document.getElementById("lotCount").value = item.lotCount;
     document.getElementById("marketPrice").value = item.marketPrice;
-    document.getElementById("multiplier").value = item.multiplier;
     document.getElementById("costOut").innerText = "—";
     document.getElementById("marketValueOut").innerText = "—";
     document.getElementById("profitOut").innerText = "—";
@@ -630,7 +641,7 @@ function fillProfitData(item){
 }
 // ========== 预算数量模块 ==========
 function calcBudgetBuy(){
-    const mul = Number(document.getElementById("budgetMul").value)||1;
+    const mul = getGlobalMultiplier();
     const price = Number(document.getElementById("budgetPrice").value);
     const budgetVal = Number(document.getElementById("budgetTotal").value);
     const elMaxQty = document.getElementById("budgetMaxQty");
@@ -670,7 +681,7 @@ function saveBudgetToHistory(obj){
     renderHistory();
 }
 function fillBudgetData(item){
-    document.getElementById("budgetMul").value = item.multiplier;
+    document.getElementById("globalMultiplier").value = item.multiplier ??1;
     document.getElementById("budgetPrice").value = item.price;
     document.getElementById("budgetTotal").value = item.budget;
     document.getElementById("budgetMaxQty").innerText = "—";
@@ -679,9 +690,6 @@ function fillBudgetData(item){
     switchTab(2);
 }
 // ========== 持仓均价模块 ==========
-function getMultiplier(){
-    return Number(document.getElementById("avgMultiplier").value) || 1;
-}
 function addRow(qty="", price=""){
     const wrap = document.getElementById("listWrap");
     const div = document.createElement("div");
@@ -704,7 +712,7 @@ function addRow(qty="", price=""){
 }
 function updateRowCosts(){
     const rows = document.querySelectorAll("#mainPanel0 .row-wrap");
-    const mul = getMultiplier();
+    const mul = getGlobalMultiplier();
     let totalMoney = 0; // 总花费（乘倍率，真实资金）
     let totalCount = 0;
     let priceQtySum = 0; // Σ(价格*数量)，用于计算平均持仓成本价，**不乘倍率**
@@ -744,13 +752,13 @@ function getCurrentInputData(){
             arr.push({qty,price});
         }
     }
-    return {rows: arr, multiplier: getMultiplier()};
+    return {rows: arr, multiplier: getGlobalMultiplier()};
 }
 function fillDataToInput(dataObj){
     document.getElementById("listWrap").innerHTML = "";
     const rows = Array.isArray(dataObj) ? dataObj : dataObj.rows;
     if(!Array.isArray(dataObj)){
-        document.getElementById("avgMultiplier").value = dataObj.multiplier ?? 1;
+        document.getElementById("globalMultiplier").value = dataObj.multiplier ?? 1;
     }
     rows.forEach(item=>{
         addRow(item.qty, item.price);
@@ -780,7 +788,7 @@ function renderHistory(){
                 showText = `<span class="tag-avg">均价</span>${item.map(x=>`${x.price}@${x.qty}`).join("，")}`;
             }else{
                 const m = item.multiplier ?? 1;
-                showText = `<span class="tag-avg">均价</span>倍率${m}：${item.rows.map(x=>`${x.price}@${x.qty}`).join("，")}`;
+                showText = `<span class="tag-avg">倍率${m}：${item.rows.map(x=>`${x.price}@${x.qty}`).join("，")}`;
             }
         }
         div.innerHTML = `
@@ -838,25 +846,21 @@ function switchMode(mode){
     document.getElementById("btnPB").classList.toggle("active", mode==="pb");
     document.getElementById("btn2leg").classList.toggle("active", mode==="2leg");
     document.getElementById("btnPR").classList.toggle("active", mode==="pr");
-
     const desc = document.getElementById("desc-text");
     const resTitle = document.getElementById("result-title");
     const labelF = document.getElementById("labelForward");
     const labelB = document.getElementById("labelBackward");
     const labelP1 = document.getElementById("labelP1");
     const labelP2 = document.getElementById("labelP2");
-
     const extendRow = document.getElementById("extend-row");
     const leg2Row = document.getElementById("leg2-start-row");
     const priceABRow = document.getElementById("priceAB-row");
     const prInputArea = document.getElementById("pr-input-area");
-
     // 全部先隐藏
     extendRow.classList.add("hide-row");
     leg2Row.classList.add("hide-row");
     priceABRow.classList.add("hide-row");
     prInputArea.classList.add("hide-row");
-
     if(mode === "mm"){
         desc.innerHTML = `正向N：沿波段方向计算N个目标；反向M：跳过起点A向外计算M个目标<br>例：A=65,B=70，正向N=1，反向M=2 →反向：60、55；正向：75`;
         resTitle.innerText = "测量移动目标列表";
@@ -880,13 +884,12 @@ function switchMode(mode){
         priceABRow.classList.remove("hide-row");
         leg2Row.classList.remove("hide-row");
     }else if(mode === "pr"){
-        desc.innerHTML = `P&R盈亏比计算器：R=平均盈利/平均亏损；保本胜率 p₀ = 1/(1+R)；实际胜率>保本胜率，长期盈利。<br>期望 E = p*R − (1−p)`;
+        desc.innerHTML = `P&R盈亏比计算器：R=平均盈利/平均亏损；打平胜率 p₀ = 1/(1+R)；实际胜率>打平胜率，长期盈利。<br>期望 E = p*R − (1−p)`;
         resTitle.innerText = "盈亏比&胜率输出";
         prInputArea.classList.remove("hide-row");
     }
     document.getElementById("resultContainer").innerHTML = "";
 }
-
 function calc(){
     if(currentMode === "mm"){
         calcMeasureMove();
@@ -898,7 +901,6 @@ function calc(){
         calcPR();
     }
 }
-
 // ========= P&R盈亏比胜率计算【修正后，匹配你图片公式】 =========
 function calcPR(){
     const rr = Number(document.getElementById("prRiskReward").value);
@@ -908,13 +910,12 @@ function calcPR(){
         container.innerHTML = `<div class="result-item"><div class="result-val-sm">请输入有效的盈亏比R>0（盈利/亏损）</div></div>`;
         return;
     }
-    // 保本胜率：p0 = 1/(1+R)
+    // 打平胜率：p0 = 1/(1+R)
     const breakEvenPct = 1 / (1 + rr) * 100;
     let html = `<div class="result-item">
-        <div class="result-val-sm">保本（打平）胜率：${breakEvenPct.toFixed(2)} %</div>
+        <div class="result-val-sm">打平胜率：${breakEvenPct.toFixed(2)} %</div>
         <div class="result-desc">盈亏比 R=${rr}:1；长期盈利需要实际胜率 > ${breakEvenPct.toFixed(2)}%</div>
     </div>`;
-
     if(!isNaN(winRateInput) && winRateInput>0 && winRateInput <=100){
         const p = winRateInput / 100;
         const expectation = p * rr - (1 - p);
@@ -924,7 +925,6 @@ function calcPR(){
         </div>`;
     }
     container.innerHTML = html;
-
     saveToLocal({
         type:"pr",
         riskReward: rr,
@@ -932,7 +932,6 @@ function calcPR(){
         breakEvenPct: breakEvenPct
     });
 }
-
 function calcMeasureMove(){
     const A = Number(document.getElementById("priceA").value);
     const B = Number(document.getElementById("priceB").value);
@@ -1137,7 +1136,7 @@ function renderPaHistory(){
             tagText = `<span class="tag-mm">2leg</span>leg1(${item.leg1Start}→${item.leg1End}),leg2起点:${item.leg2Start}`;
         }else if(item.type === "pr"){
             const wrText = item.winRatePct ? `,胜率${item.winRatePct}%` : "";
-            tagText = `<span class="tag-pr">P&R</span>盈亏比${item.riskReward}:1${wrText},保本胜率${item.breakEvenPct.toFixed(2)}%`;
+            tagText = `<span class="tag-pr">P&R</span>盈亏比${item.riskReward}:1${wrText},打平胜率${item.breakEvenPct.toFixed(2)}%`;
         }
         div.innerHTML = `
             <span>${tagText}</span>
@@ -1169,3 +1168,4 @@ window.onload = ()=>{
 </script>
 </body>
 </html>
+<!-- （注：内容由AI生成） -->
