@@ -206,11 +206,18 @@
         .history-item:hover{
             background:#f3ecfa;
         }
+        .history-text{
+            flex: 1;
+            padding-right: 8px;
+        }
         .history-del{
             color:#c74498;
             border:none;
             background:transparent;
             cursor:pointer;
+            flex-shrink:0;
+            font-size:18px;
+            padding:0 4px;
         }
         .history-title{
             font-weight:500;
@@ -340,7 +347,7 @@
         <div class="global-mul-wrap">
             <div class="item">
                 <label>🔗全局合约乘数（全部子工具共用）</label>
-                <input id="globalMultiplier" type="number" value="1" list="globalMulList" oninput="onGlobalMulChange()">
+                <input id="globalMultiplier" type="number" placeholder="1 默认" list="globalMulList" oninput="onGlobalMulChange()">
                 <datalist id="globalMulList">
                     <option value="1">1 默认</option>
                     <option value="5">5 PVC</option>
@@ -638,6 +645,7 @@ function fillProfitData(item){
     document.getElementById("marketValueOut").innerText = "—";
     document.getElementById("profitOut").innerText = "—";
     switchTab(1);
+    calcProfitAndSave(); //回填后自动计算
 }
 // ========== 预算数量模块 ==========
 function calcBudgetBuy(){
@@ -688,6 +696,7 @@ function fillBudgetData(item){
     document.getElementById("budgetUsed").innerText = "—";
     document.getElementById("budgetRate").innerText = "—";
     switchTab(2);
+    calcBudgetBuy(); //回填后自动计算
 }
 // ========== 持仓均价模块 ==========
 function addRow(qty="", price=""){
@@ -765,6 +774,7 @@ function fillDataToInput(dataObj){
     })
     updateRowCosts();
     switchTab(0);
+    calcAvg(); //回填后自动计算
 }
 function renderHistory(){
     const box = document.getElementById("historyBox");
@@ -777,22 +787,28 @@ function renderHistory(){
     history.forEach((item,idx)=>{
         const div = document.createElement("div");
         div.className="history-item";
-        let showText = "";
+        let tagHtml = "";
+        let contentText = "";
         if(item.type === "profit"){
             const dirText = item.isLong?"多":"空";
-            showText = `<span class="tag-profit">盈亏</span>${dirText},${item.entryPrice},${item.lotCount}手,现价${item.marketPrice},盈亏${item.result.toFixed(2)}`;
+            tagHtml = `<span class="tag-profit">盈亏</span>`;
+            contentText = `${dirText},${item.entryPrice},${item.lotCount}手,现价${item.marketPrice},盈亏${item.result.toFixed(2)}`;
         }else if(item.type === "budget"){
-            showText = `<span class="tag-budget">预算</span>单价${item.price},预算${item.budget},最大可买${item.maxQty},完成率${item.rate.toFixed(1)}%`;
+            tagHtml = `<span class="tag-budget">预算</span>`;
+            contentText = `单价${item.price},预算${item.budget},最大可买${item.maxQty},完成率${item.rate.toFixed(1)}%`;
         }else{
             if(Array.isArray(item)){
-                showText = `<span class="tag-avg">均价</span>${item.map(x=>`${x.price}@${x.qty}`).join("，")}`;
+                tagHtml = `<span class="tag-avg">均价</span>`;
+                contentText = `${item.map(x=>`${x.price}@${x.qty}`).join("，")}`;
             }else{
                 const m = item.multiplier ?? 1;
-                showText = `<span class="tag-avg">倍率${m}：${item.rows.map(x=>`${x.price}@${x.qty}`).join("，")}`;
+                tagHtml = `<span class="tag-avg">倍率${m}</span>`;
+                contentText = `${item.rows.map(x=>`${x.price}@${x.qty}`).join("，")}`;
             }
         }
+        // ✅重点修复：tag + 内容全部包进 history-text，flex:1 占满剩余空间
         div.innerHTML = `
-            <span>${showText}</span>
+            <span class="history-text">${tagHtml}${contentText}</span>
             <button class="history-del">×</button>
         `
         div.onclick = (e)=>{
@@ -1106,6 +1122,7 @@ function fillRecord(item){
         document.getElementById("prWinRate").value = item.winRatePct ?? "";
     }
     document.getElementById("resultContainer").innerHTML = "";
+    calc(); //回填完参数自动执行计算
 }
 function renderPaHistory(){
     const box = document.getElementById("paHistoryBox");
@@ -1127,19 +1144,24 @@ function renderPaHistory(){
     history.forEach((item,idx)=>{
         const div = document.createElement("div");
         div.className="history-item";
-        let tagText;
+        let tagHtml = "";
+        let contentText = "";
         if(item.type === "measureMove"){
-            tagText = `<span class="tag-mm">MM(N${item.forwardN},M${item.backwardM})</span>A:${item.priceA},B:${item.priceB}`;
+            tagHtml = `<span class="tag-mm">MM(N${item.forwardN},M${item.backwardM})</span>`;
+            contentText = `A:${item.priceA},B:${item.priceB}`;
         }else if(item.type === "pb50"){
-            tagText = `<span class="tag-mm">50%PB</span>高点:${item.high},低点:${item.low}`;
+            tagHtml = `<span class="tag-mm">50%PB</span>`;
+            contentText = `高点:${item.high},低点:${item.low}`;
         }else if(item.type === "2leg"){
-            tagText = `<span class="tag-mm">2leg</span>leg1(${item.leg1Start}→${item.leg1End}),leg2起点:${item.leg2Start}`;
+            tagHtml = `<span class="tag-mm">2leg</span>`;
+            contentText = `leg1(${item.leg1Start}→${item.leg1End}),leg2起点:${item.leg2Start}`;
         }else if(item.type === "pr"){
             const wrText = item.winRatePct ? `,胜率${item.winRatePct}%` : "";
-            tagText = `<span class="tag-pr">P&R</span>盈亏比${item.riskReward}:1${wrText},打平胜率${item.breakEvenPct.toFixed(2)}%`;
+            tagHtml = `<span class="tag-pr">P&R</span>`;
+            contentText = `盈亏比${item.riskReward}:1${wrText},打平胜率${item.breakEvenPct.toFixed(2)}%`;
         }
         div.innerHTML = `
-            <span>${tagText}</span>
+            <span class="history-text">${tagHtml}${contentText}</span>
             <button class="history-del">×</button>
         `
         div.onclick = (e)=>{
