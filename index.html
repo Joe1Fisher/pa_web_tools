@@ -347,7 +347,10 @@
         <div class="global-mul-wrap">
             <div class="item">
                 <label>🔗全局合约乘数（全部子工具共用）</label>
-                <input id="globalMultiplier" type="number" placeholder="1 默认" list="globalMulList" oninput="onGlobalMulChange()">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input id="globalMultiplier" type="number" placeholder="1 默认" list="globalMulList" oninput="onGlobalMulChange()" style="flex:1;margin:0;">
+                    <button onclick="clearGlobalMul()" style="width:36px;height:36px;border-radius:6px;border:1px solid #c2d8f0;background:#fff;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">×</button>
+                </div>
                 <datalist id="globalMulList">
                     <option value="1">1 默认</option>
                     <option value="5">5 PVC</option>
@@ -358,7 +361,6 @@
                 </datalist>
             </div>
         </div>
-
         <!-- 子Tab：3个平级【已简化名称】 -->
         <div class="tab-wrap">
             <div class="tab active" onclick="switchTab(0)">持仓均价</div>
@@ -548,7 +550,6 @@ function switchTab(idx){
         else p.classList.remove("show");
     })
 }
-
 // ✅全局合约乘数读取
 function getGlobalMultiplier(){
     return Number(document.getElementById("globalMultiplier").value) || 1;
@@ -557,7 +558,10 @@ function onGlobalMulChange(){
     // 切换乘数，立刻刷新持仓均价面板各行成本预览
     updateRowCosts();
 }
-
+function clearGlobalMul(){
+    document.getElementById("globalMultiplier").value = "";
+    onGlobalMulChange();
+}
 // ========== 盈亏测算模块 ==========
 let isLong = true; // true=做多买，false=做空卖
 function toggleDirection(){
@@ -712,8 +716,9 @@ function addRow(qty="", price=""){
             <label>持仓数量 *</label>
             <input class="inp-qty" type="number" value="${qty}" oninput="updateRowCosts()">
         </div>
-        <div>
-            <button class="del-btn" onclick="this.closest('.row-wrap').remove(); updateRowCosts();">删除</button>
+        <div style="display:flex;align-items:flex-end;">
+            <button class="del-btn" onclick="this.closest('.row-wrap').remove(); updateRowCosts();"
+            style="width:36px;height:36px;border-radius:6px;border:1px solid #c2d8f0;background:#fff;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
         <div class="row-cost">该份持仓成本：—</div>
     `;
@@ -1190,4 +1195,3 @@ window.onload = ()=>{
 </script>
 </body>
 </html>
-<!-- （注：内容由AI生成） -->
